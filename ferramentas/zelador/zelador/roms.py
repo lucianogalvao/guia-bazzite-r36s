@@ -81,7 +81,7 @@ def listar_downloads(ex: Executor, raiz: Path | None = None, ativos: set[Path] |
     ativos = torrents_ativos() if ativos is None else ativos
     itens = []
     for f in sorted(raiz.rglob("*")):
-        if not f.is_file() or f.name in LIXO_NOMES or f.suffix.lower() in LIXO_EXT or f.name.startswith("BLUEROMS"):
+        if not f.is_file() or f.name in LIXO_NOMES or f.suffix.lower() in LIXO_EXT:
             continue
         tam = f.stat().st_size
         if tam < 5 * 2**20:
