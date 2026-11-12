@@ -200,3 +200,52 @@ textarea::placeholder { color: var(--sutil); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* ---------- Mouse (Mac/PC): realce ao passar ---------- */
+@media (hover: hover) and (pointer: fine) {
+  .acao:hover:not(:disabled), .atalho:hover:not(:disabled), .botao:hover:not(:disabled) { background: var(--elevado); }
+  .acao-primaria:hover:not(:disabled), .botao-primario:hover:not(:disabled) { background: #9FACFF; }
+  .botao-perigo:hover:not(:disabled) { background: #FF8585; }
+  .enviar:hover { background: #9FACFF; }
+}
+
+/* ---------- Tela larga (Mac): conversa numa coluna fixa à direita ---------- */
+@media (min-width: 900px) {
+  main { max-width: 1180px; padding: 28px 32px; }
+  #tela-app {
+    display: grid;
+    grid-template-columns: minmax(360px, 420px) 1fr;
+    grid-template-areas:
+      "painel     conversa"
+      "principais conversa"
+      "resultado  conversa"
+      "tarefas    conversa"
+      "mais       conversa";
+    grid-template-rows: auto auto auto auto 1fr;
+    column-gap: 28px;
+    align-items: start;
+  }
+  .painel { grid-area: painel; }
+  .principais { grid-area: principais; }
+  #resultado { grid-area: resultado; }
+  #tarefas { grid-area: tarefas; }
+  .mais { grid-area: mais; }
+  .mais h2 { margin-top: 24px; }
+  .conversa {
+    grid-area: conversa;
+    position: sticky; top: 28px;
+    height: calc(100vh - 56px);
+    display: flex; flex-direction: column;
+    padding: 20px;
+    background: color-mix(in srgb, var(--superficie) 55%, transparent);
+    border: 1px solid var(--linha);
+    border-radius: var(--raio-grande);
+  }
+  .conversa h2 { margin-top: 0; }
+  #mensagens { flex: 1; overflow-y: auto; padding-right: 4px; }
+  .msg { max-width: 72%; }
+  .proposta { max-width: 760px; }
+  .vazio { margin: auto; max-width: 34ch; text-align: center; }
+  #form-chat { margin-top: 14px; }
+  .atalho { min-height: 60px; flex-direction: row; align-items: center; }
+}
