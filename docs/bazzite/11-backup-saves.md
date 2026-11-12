@@ -68,7 +68,7 @@ rclone size gdrive:Bazzite-Saves/atual
 
 | Sintoma | Causa | Solução |
 |---|---|---|
-| Aviso "shared Google Drive client_id ... being retired" | O client_id compartilhado do rclone vai ser desativado pelo Google | Crie um client_id próprio (rclone.org/drive/#making-your-own-client-id) e refaça o passo 2 com `client_id=` e `client_secret=` |
+| Aviso "shared Google Drive client_id ... being retired" | O client_id compartilhado do rclone vai ser desativado pelo Google | Crie um client_id próprio (rclone.org/drive/#making-your-own-client-id). Para publicar o app (em modo Teste o login cai a cada 7 dias), o Google pede página inicial e política de privacidade: use o repositório e [privacidade-rclone.md](../privacidade-rclone.md), com `github.com` em domínios autorizados. Depois: `rclone config update gdrive client_id=… client_secret=…` e `rclone config reconnect gdrive:` |
 | "directory not found" na primeira execução | Ainda não existia o histórico | Corrigido no script: a limpeza só roda se a pasta existir |
 | Backup cancelado: "Disco não montado" | HD ou NVMe não montou | Proposital: sem o disco, o `sync` apagaria os saves do Drive. Veja [02](02-discos.md) |
 | Save state não funciona em outro aparelho | Save state depende do núcleo e da versão | Normal. Os saves do jogo (`.srm`, NAND) funcionam |
