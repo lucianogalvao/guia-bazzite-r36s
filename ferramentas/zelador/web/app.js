@@ -2,6 +2,7 @@
 
 const $ = (s) => document.querySelector(s);
 const historico = [];
+const SEM_CONEXAO = "Não consegui falar com o PC. Confira se ele está ligado e no Wi-Fi de casa.";
 
 function el(tag, attrs = {}, ...filhos) {
   const e = document.createElement(tag);
@@ -32,27 +33,58 @@ function mostrarApp() {
   atualizarEstado(); vigiarTarefas(); carregarPropostas();
 }
 
-// Propostas criadas por um chat cuja resposta se perdeu (página fechada) reaparecem aqui.
-const propostasNaTela = new Set();
-async function carregarPropostas() {
-  try {
-    const { dados } = await api("GET", "/api/propostas");
-    for (const p of dados) if (!propostasNaTela.has(p.id)) $("#mensagens").append(cartaoProposta(p));
-  } catch { /* tenta de novo ao reabrir */ }
-}
-
 $("#form-pin").addEventListener("submit", async (ev) => {
   ev.preventDefault();
-  const r = await fetch("/api/login", { method: "POST", body: JSON.stringify({ pin: $("#pin").value }) });
-  if (r.ok) { $("#pin").value = ""; $("#pin-erro").textContent = ""; mostrarApp(); }
-  else $("#pin-erro").textContent = (await r.json().catch(() => ({}))).erro || "Não deu certo.";
+  try {
+    const r = await fetch("/api/login", { method: "POST", body: JSON.stringify({ pin: $("#pin").value }) });
+    if (r.ok) { $("#pin").value = ""; $("#pin-erro").textContent = ""; mostrarApp(); }
+    else $("#pin-erro").textContent = (await r.json().catch(() => ({}))).erro || "Não deu certo.";
+  } catch { $("#pin-erro").textContent = SEM_CONEXAO; }
 });
+
+// ---------- Painel de status ----------
+function gb(v) { return v == null ? "?" : `${Math.round(v)} GB livres`; }
+
+function pintarPainel(s) {
+  const discosOk = Object.values(s.discos || {}).every(Boolean);
+  const sunshine = s.sunshine === "active";
+  let classe = "anel-ok", frase = "Pronto para jogar na TV";
+  if (!sunshine) { classe = "anel-atencao"; frase = "O streaming está parado"; }
+  if (!discosOk) { classe = "anel-perigo"; frase = "Um disco não montou"; }
+  $("#anel").className = `anel ${classe}`;
+  $("#frase").textContent = frase;
+
+  const livre = s.livre_gb || {};
+  const chips = [
+    [s.jogo ? `Jogo aberto: ${s.jogo}` : "Nenhum jogo aberto", false],
+    [`HD ${gb(livre["/var/mnt/roms"])}`, s.discos && !s.discos["/var/mnt/roms"]],
+    [`NVMe ${gb(livre["/var/mnt/jogos"])}`, s.discos && !s.discos["/var/mnt/jogos"]],
+  ];
+  if (s.ultimo_backup) {
+    const hora = (s.ultimo_backup.match(/\d{2}:\d{2}/) || [""])[0];
+    chips.push([`Backup ${hora}`, false]);
+  } else chips.push(["Sem backup dos saves", true]);
+  $("#chips").replaceChildren(...chips.map(([t, alerta]) => el("li", alerta ? { class: "alerta" } : {}, t)));
+}
+
+async function atualizarEstado() {
+  try {
+    const { dados } = await api("GET", "/api/status");
+    pintarPainel(dados);
+  } catch (e) {
+    if (e.message !== "sem login") {
+      $("#anel").className = "anel anel-perigo";
+      $("#frase").textContent = "Sem contato com o PC";
+      $("#chips").replaceChildren();
+    }
+  }
+}
 
 // ---------- Resultado dos botões ----------
 function resultado(tipo, ...conteudo) {
   const r = $("#resultado");
   r.hidden = false;
-  r.className = "cartao " + tipo;
+  r.className = "aviso-caixa " + tipo;
   r.replaceChildren(...conteudo);
 }
 
@@ -60,26 +92,26 @@ async function rodarAcao(nome, botao) {
   if (botao) botao.disabled = true;
   try {
     const { dados } = await api("POST", "/api/acao/" + nome);
-    if (nome === "status") resultado("", textoStatus(dados));
+    if (nome === "status") resultado("", tabelaStatus(dados));
     else resultado(dados.ok ? "ok" : "falha", dados.mensagem || "Feito.");
     atualizarEstado();
   } catch (e) {
-    if (e.message !== "sem login") resultado("falha", "Não consegui falar com o PC.");
+    if (e.message !== "sem login") resultado("falha", SEM_CONEXAO);
   } finally { if (botao) botao.disabled = false; }
 }
 
-function textoStatus(s) {
+function tabelaStatus(s) {
   const linhas = [
-    `Sunshine: ${s.sunshine === "active" ? "rodando" : s.sunshine}`,
-    `Jogo aberto: ${s.jogo || "nenhum"}`,
+    ["Streaming", s.sunshine === "active" ? "rodando" : s.sunshine],
+    ["Jogo aberto", s.jogo || "nenhum"],
     ...Object.entries(s.discos || {}).map(([d, ok]) =>
-      `${d}: ${ok ? "montado" : "NÃO montado"}${s.livre_gb && s.livre_gb[d] != null ? `, ${s.livre_gb[d]} GB livres` : ""}`),
-    `Último backup dos saves: ${s.ultimo_backup || "nunca"}`,
+      [d, `${ok ? "montado" : "não montado"}${s.livre_gb && s.livre_gb[d] != null ? `, ${s.livre_gb[d]} GB livres` : ""}`]),
+    ["Último backup", s.ultimo_backup || "nunca"],
   ];
-  return el("pre", {}, linhas.join("\n"));
+  return el("dl", { class: "status" }, ...linhas.flatMap(([k, v]) => [el("dt", {}, k), el("dd", {}, v)]));
 }
 
-const NOMES_ACAO = { reiniciar_sunshine: "Reiniciar Sunshine" };
+const NOMES_ACAO = { reiniciar_sunshine: "Reiniciar o streaming" };
 
 $("#btn-diag").addEventListener("click", async (ev) => {
   const b = ev.currentTarget;
@@ -89,13 +121,14 @@ $("#btn-diag").addEventListener("click", async (ev) => {
     const itens = dados.itens || [];
     const botoes = el("div", { class: "botoes" });
     for (const a of new Set(itens.map((i) => i.acao).filter(Boolean))) {
-      botoes.append(el("button", { class: "primario", onclick: (e) => rodarAcao(a, e.currentTarget) }, NOMES_ACAO[a] || a));
+      botoes.append(el("button", { class: "botao botao-primario", onclick: (e) => rodarAcao(a, e.currentTarget) },
+        NOMES_ACAO[a] || a));
     }
-    botoes.append(el("button", { onclick: () => enviar(`Explique este diagnóstico e o que fazer: ${dados.resumo}`) },
+    botoes.append(el("button", { class: "botao", onclick: () => enviar(`Explique este diagnóstico e o que fazer: ${dados.resumo}`) },
       "Pedir explicação"));
-    resultado(itens.length ? "aviso" : "ok", el("div", {}, dados.resumo), botoes);
+    resultado(itens.length ? "atencao" : "ok", el("div", {}, dados.resumo), botoes);
   } catch (e) {
-    if (e.message !== "sem login") resultado("falha", "Não consegui falar com o PC.");
+    if (e.message !== "sem login") resultado("falha", SEM_CONEXAO);
   } finally { b.disabled = false; }
 });
 
@@ -103,13 +136,6 @@ document.querySelectorAll("[data-acao]").forEach((b) =>
   b.addEventListener("click", () => rodarAcao(b.dataset.acao, b)));
 document.querySelectorAll("[data-pedido]").forEach((b) =>
   b.addEventListener("click", () => enviar(b.dataset.pedido)));
-
-async function atualizarEstado() {
-  try {
-    const { dados } = await api("GET", "/api/status");
-    $("#estado-pc").textContent = dados.sunshine === "active" ? "Sunshine rodando" : "Sunshine parado";
-  } catch { /* sem login ou offline */ }
-}
 
 // ---------- Tarefas ----------
 let vigia = null;
@@ -127,14 +153,18 @@ function cartaoTarefa(t) {
   const sit = { rodando: "em andamento", ok: "concluída", falhou: "falhou", interrompida: "interrompida" }[t.situacao];
   const pct = t.total ? Math.round((100 * t.passo) / t.total) : 100;
   const tipo = t.situacao === "ok" ? "ok" : t.situacao === "rodando" ? "" : "falha";
-  const barra = el("div", { class: "barra" }, el("div", { style: `width:${pct}%` }));
-  const c = el("div", { class: `cartao tarefa ${tipo}` }, el("strong", {}, t.titulo), ` · ${sit} (${t.passo}/${t.total})`, barra);
+  const c = el("div", { class: `tarefa ${tipo}` },
+    el("div", { class: "tarefa-topo" }, t.titulo, el("span", {}, `${sit} · ${t.passo}/${t.total}`)),
+    el("div", { class: "barra" }, el("div", { style: `width:${pct}%` })));
   if (t.situacao === "falhou" && t.log_fim) c.append(el("pre", {}, t.log_fim));
   return c;
 }
 
-// ---------- Chat ----------
+// ---------- Conversa ----------
+function limparVazio() { const v = $("#mensagens .vazio"); if (v) v.remove(); }
+
 function adicionarMsg(role, texto) {
+  limparVazio();
   $("#mensagens").append(el("div", { class: `msg ${role}` }, texto));
   $("#mensagens").lastChild.scrollIntoView({ block: "end", behavior: "smooth" });
 }
@@ -142,17 +172,19 @@ function adicionarMsg(role, texto) {
 async function enviar(texto, forcar = false) {
   texto = (texto || "").trim();
   if (!texto) return;
+  limparVazio();
   if (!forcar) { historico.push({ role: "user", content: texto }); adicionarMsg("user", texto); }
-  const esperando = el("div", { class: "msg assistant" }, "Pensando…");
+  const esperando = el("div", { class: "msg assistant pensando" }, "Pensando");
   $("#mensagens").append(esperando);
+  esperando.scrollIntoView({ block: "end", behavior: "smooth" });
   try {
     const { dados } = await api("POST", "/api/chat", { historico, forcar });
     esperando.remove();
     if (dados.aviso) {
-      const c = el("div", { class: "cartao aviso" }, dados.aviso,
+      const c = el("div", { class: "proposta" }, el("strong", {}, "Tem um jogo aberto"), dados.aviso,
         el("div", { class: "botoes" },
-          el("button", { class: "primario", onclick: (e) => { e.currentTarget.closest(".cartao").remove(); enviar(texto, true); } }, "Enviar mesmo assim"),
-          el("button", { onclick: (e) => e.currentTarget.closest(".cartao").remove() }, "Cancelar")));
+          el("button", { class: "botao botao-primario", onclick: (e) => { e.currentTarget.closest(".proposta").remove(); enviar(texto, true); } }, "Enviar mesmo assim"),
+          el("button", { class: "botao", onclick: (e) => e.currentTarget.closest(".proposta").remove() }, "Cancelar")));
       $("#mensagens").append(c);
       return;
     }
@@ -161,60 +193,81 @@ async function enviar(texto, forcar = false) {
     for (const p of dados.propostas || []) if (!propostasNaTela.has(p.id)) $("#mensagens").append(cartaoProposta(p));
   } catch (e) {
     esperando.remove();
-    if (e.message !== "sem login") adicionarMsg("assistant", "Não consegui falar com o PC.");
+    if (e.message !== "sem login") adicionarMsg("assistant", SEM_CONEXAO);
   }
+}
+
+// Propostas criadas por um chat cuja resposta se perdeu (página fechada) reaparecem aqui.
+const propostasNaTela = new Set();
+async function carregarPropostas() {
+  try {
+    const { dados } = await api("GET", "/api/propostas");
+    for (const p of dados) if (!propostasNaTela.has(p.id)) { limparVazio(); $("#mensagens").append(cartaoProposta(p)); }
+  } catch { /* tenta de novo ao reabrir */ }
 }
 
 function cartaoProposta(p) {
   propostasNaTela.add(p.id);
   const apaga = p.passos.some((x) => x.apaga);
-  const lista = el("ul", {}, ...p.passos.map((x) => el("li", {}, x.descricao)));
   const botoes = el("div", { class: "botoes" });
-  const c = el("div", { class: "cartao aviso" }, el("strong", {}, p.titulo), lista, botoes);
+  const c = el("div", { class: `proposta${apaga ? " apaga" : ""}` },
+    el("strong", {}, p.titulo),
+    el("ol", {}, ...p.passos.map((x) => el("li", {}, x.descricao))),
+    botoes);
 
-  const aprovar = el("button", { class: apaga ? "perigo" : "primario" }, apaga ? "Aprovar (apaga arquivos)" : "Aprovar");
-  const recusar = el("button", {}, "Recusar");
+  const aprovar = el("button", { class: `botao ${apaga ? "botao-perigo" : "botao-primario"}` },
+    apaga ? "Aprovar e apagar" : "Aprovar");
+  const recusar = el("button", { class: "botao" }, "Recusar");
+
+  async function pedir(corpo) {
+    try { return (await api("POST", `/api/aprovar/${p.id}`, corpo)).dados; }
+    catch (e) { return { ok: false, mensagem: e.message === "sem login" ? "Entre com o PIN de novo." : SEM_CONEXAO }; }
+  }
   aprovar.addEventListener("click", async () => {
     aprovar.disabled = recusar.disabled = true;
-    let { dados } = await api("POST", `/api/aprovar/${p.id}`, {});
+    const dados = await pedir({});
     if (dados.precisa_confirmar_apagar) {
-      const sim = el("button", { class: "perigo" }, "Sim, apagar");
+      const sim = el("button", { class: "botao botao-perigo" }, "Sim, apagar");
       botoes.replaceChildren(el("span", {}, "Tem certeza? Não dá para desfazer."), sim,
-        el("button", { onclick: () => fechar("Cancelado.") }, "Não"));
+        el("button", { class: "botao", onclick: () => fechar("Cancelado.") }, "Não"));
       sim.addEventListener("click", async () => {
         sim.disabled = true;
-        ({ dados } = await api("POST", `/api/aprovar/${p.id}`, { confirmar_apagar: true }));
-        fechar(dados.ok ? "Aprovado. Acompanhe acima." : dados.mensagem);
+        const d = await pedir({ confirmar_apagar: true });
+        fechar(d.ok ? "Aprovado. O andamento aparece acima." : d.mensagem);
       });
       return;
     }
-    fechar(dados.ok ? "Aprovado. Acompanhe acima." : dados.mensagem);
+    fechar(dados.ok ? "Aprovado. O andamento aparece acima." : dados.mensagem);
   });
   recusar.addEventListener("click", async () => {
     recusar.disabled = aprovar.disabled = true;
-    await api("POST", `/api/recusar/${p.id}`, {});
-    fechar("Recusado.");
+    try { await api("POST", `/api/recusar/${p.id}`, {}); fechar("Recusado."); }
+    catch { fechar(SEM_CONEXAO); }
   });
   function fechar(msg) {
     botoes.replaceChildren(el("span", { class: "sutil" }, msg));
-    c.className = "cartao";
     vigiarTarefas();
   }
   botoes.append(aprovar, recusar);
   return c;
 }
 
+const caixa = $("#texto");
+caixa.addEventListener("input", () => { caixa.style.height = "auto"; caixa.style.height = caixa.scrollHeight + "px"; });
+caixa.addEventListener("keydown", (ev) => {
+  if (ev.key === "Enter" && !ev.shiftKey && !ev.isComposing) { ev.preventDefault(); $("#form-chat").requestSubmit(); }
+});
 $("#form-chat").addEventListener("submit", (ev) => {
   ev.preventDefault();
-  const t = $("#texto").value;
-  $("#texto").value = "";
+  const t = caixa.value;
+  caixa.value = ""; caixa.style.height = "auto";
   enviar(t);
+});
+
+// Ao voltar para o app (iPhone), atualiza o painel, as tarefas e as propostas.
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && !$("#tela-app").hidden) { atualizarEstado(); vigiarTarefas(); carregarPropostas(); }
 });
 
 // ---------- Início ----------
 api("GET", "/api/status").then(mostrarApp).catch(() => {});
-
-// Ao voltar para o app (iPhone), atualiza tarefas e propostas.
-document.addEventListener("visibilitychange", () => {
-  if (!document.hidden && !$("#tela-app").hidden) { vigiarTarefas(); carregarPropostas(); }
-});

@@ -8,52 +8,75 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Zelador">
-<meta name="theme-color" content="#101418">
+<meta name="theme-color" content="#141A2E">
 <link rel="apple-touch-icon" href="icone-180.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="m16 16 4.5 4.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
+  <symbol id="i-gauge" viewBox="0 0 24 24"><path d="M4 16a8 8 0 1 1 16 0" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="m12 16 4-5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
+  <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M7 18h10a4 4 0 0 0 .5-7.97A6 6 0 0 0 6.1 9.5 4.25 4.25 0 0 0 7 18Z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><path d="M12 15v-4m0 0-2 2m2-2 2 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-box" viewBox="0 0 24 24"><path d="M4 8h16v11H4zM3 5h18v3H3zM10 12h4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/></symbol>
+  <symbol id="i-card" viewBox="0 0 24 24"><path d="M7 3h7l4 4v14H7z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><path d="M10 7v3m3-3v3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="M12 19V5m0 0-6 6m6-6 6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+</svg>
+
 <main>
   <section id="tela-pin" hidden>
-    <h1>Zelador</h1>
-    <p class="sutil">Digite o PIN do PC.</p>
+    <div class="anel anel-neutro" aria-hidden="true"><span></span></div>
+    <h1 class="pin-titulo">Zelador</h1>
+    <p class="sutil">Digite o PIN do PC da sala.</p>
     <form id="form-pin">
       <input id="pin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="current-password" aria-label="PIN">
-      <button class="grande primario" type="submit">Entrar</button>
+      <button class="acao acao-primaria" type="submit"><span class="acao-texto">Entrar</span></button>
     </form>
     <p id="pin-erro" class="erro" role="alert"></p>
   </section>
 
   <section id="tela-app" hidden>
-    <header><h1>Zelador</h1><span id="estado-pc" class="sutil"></span></header>
+    <header class="painel" aria-live="polite">
+      <div id="anel" class="anel anel-neutro" aria-hidden="true"><span></span></div>
+      <div class="painel-texto">
+        <h1 id="frase">Conferindo o PC…</h1>
+        <ul id="chips" class="chips"></ul>
+      </div>
+    </header>
 
     <div class="principais">
-      <button class="grande primario" data-acao="reiniciar_sunshine">Reiniciar Sunshine</button>
-      <button class="grande" id="btn-diag">O que está acontecendo?</button>
+      <button class="acao acao-primaria" data-acao="reiniciar_sunshine">
+        <svg class="icone"><use href="#i-refresh"/></svg>
+        <span class="acao-texto">Reiniciar o streaming<small>Sunshine</small></span>
+      </button>
+      <button class="acao" id="btn-diag">
+        <svg class="icone"><use href="#i-search"/></svg>
+        <span class="acao-texto">O que está acontecendo?<small>Procura problemas conhecidos</small></span>
+      </button>
     </div>
-    <div id="resultado" class="cartao" hidden aria-live="polite"></div>
+    <div id="resultado" class="aviso-caixa" hidden aria-live="polite"></div>
 
     <div id="tarefas"></div>
 
-    <section class="chat">
-      <h2>Conversar</h2>
-      <div id="mensagens"></div>
+    <section class="conversa">
+      <h2>Conversar com o Zelador</h2>
+      <div id="mensagens"><p class="vazio">Peça algo como “organiza o que tem em Downloads” ou “por que a TV não conecta?”.</p></div>
       <form id="form-chat">
-        <textarea id="texto" rows="2" placeholder="Ex.: organiza o que tem em Downloads"></textarea>
-        <button class="primario" type="submit">Enviar</button>
+        <textarea id="texto" rows="1" placeholder="Escreva um pedido"></textarea>
+        <button class="enviar" type="submit" aria-label="Enviar"><svg class="icone"><use href="#i-send"/></svg></button>
       </form>
     </section>
 
-    <details class="avancado">
-      <summary>Avançado</summary>
+    <section class="mais">
+      <h2>Mais</h2>
       <div class="grade">
-        <button data-acao="status">Status</button>
-        <button data-acao="backup_agora">Backup dos saves agora</button>
-        <button data-pedido="Organize o que tem em Downloads">Organizar Downloads</button>
-        <button data-pedido="O cartão do R36S está no leitor? Quanto espaço tem?">R36S</button>
+        <button class="atalho" data-acao="status"><svg class="icone"><use href="#i-gauge"/></svg>Status completo</button>
+        <button class="atalho" data-acao="backup_agora"><svg class="icone"><use href="#i-cloud"/></svg>Backup dos saves</button>
+        <button class="atalho" data-pedido="Organize o que tem em Downloads"><svg class="icone"><use href="#i-box"/></svg>Organizar Downloads</button>
+        <button class="atalho" data-pedido="O cartão do R36S está no leitor? Quanto espaço tem?"><svg class="icone"><use href="#i-card"/></svg>Cartão do R36S</button>
       </div>
-    </details>
+    </section>
   </section>
 </main>
 <script src="app.js"></script>
