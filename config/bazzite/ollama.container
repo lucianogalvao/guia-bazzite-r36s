@@ -12,6 +12,9 @@ After=network-online.target
 ContainerName=ollama
 Image=docker.io/ollama/ollama:0.40.16
 AddDevice=nvidia.com/gpu=all
+# Sem isto o SELinux bloqueia a GPU no contêiner ("NVML: Insufficient Permissions") e o modelo roda na CPU.
+# Afrouxa o isolamento só deste contêiner, que escuta apenas em 127.0.0.1.
+SecurityLabelDisable=true
 Volume=/var/mnt/jogos/ollama:/root/.ollama:Z
 PublishPort=127.0.0.1:11434:11434
 Environment=OLLAMA_KEEP_ALIVE=5m

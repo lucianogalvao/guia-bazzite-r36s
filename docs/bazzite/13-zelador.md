@@ -74,9 +74,11 @@ nvidia-smi | sed -n '/Processes/,$p'                   # ollama aparece só dura
 
 | Sintoma | Causa | Solução |
 |---|---|---|
+| Respostas levam ~1 min; `podman exec ollama ollama ps` mostra `100% CPU` | O SELinux bloqueia a GPU no contêiner (`podman logs ollama` sem "library=CUDA"; `nvidia-smi` dentro dele dá "Insufficient Permissions") | `SecurityLabelDisable=true` no `ollama.container` (já está no arquivo do guia). Afrouxa o isolamento só desse contêiner, que escuta apenas em `127.0.0.1` |
+| Primeira resposta demora ~1,5 min | O modelo está sendo carregado na placa de vídeo | Normal. As seguintes levam segundos; depois de 5 min parado ele sai da GPU e a próxima carrega de novo |
+| `ollama ps` mostra parte na CPU (ex.: 14%/86%) | Pouca memória de vídeo livre (jogo/emulador ou Desktop abertos) | Normal: só fica um pouco mais lento |
 | "O modelo está indisponível agora" | Ollama parado ou ainda carregando | `systemctl --user status ollama`. Os botões continuam funcionando |
 | Página não abre no iPhone | Fora do Wi-Fi de casa, ou PC desligado | Conecte no Wi-Fi; ligue o PC pela Alexa/WoL |
 | "Muitas tentativas" | 5 PINs errados seguidos | Espere 1 minuto |
 | Esqueceu o PIN | — | `python3 -m zelador definir-pin` no PC (desconecta todos os aparelhos) |
-| Resposta lenta na primeira pergunta | O modelo está sendo carregado na placa de vídeo | Normal: uns segundos. As próximas são rápidas |
 | R36S: "ROOTFS do cartão está montada" | O PC montou a partição de sistema | Desmonte e reveja a regra udev do [r36s/01](../r36s/01-antes-de-tudo.md) |
