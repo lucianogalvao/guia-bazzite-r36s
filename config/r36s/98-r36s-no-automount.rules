@@ -1,0 +1,11 @@
+# /etc/udev/rules.d/98-r36s-no-automount.rules
+# Impede o PC de montar a partição de sistema (btrfs "ROOTFS") de um cartão do R36S.
+#
+# Por quê: o kernel 4.4 do R36S não entende o free space tree nem o zstd, que o Bazzite
+# ativa só por montar a partição (space_cache=v2, compress-force=zstd).
+# Tem que rodar ANTES de 99-steamos-automount.rules: muda o ID_FS_USAGE, e aquele
+# automount ignora o que não for "filesystem". UDISKS_IGNORE cobre o KDE/udisks.
+# BOOT (vfat) e EASYROMS (exFAT) continuam montando.
+#
+#   sudo install -m644 98-r36s-no-automount.rules /etc/udev/rules.d/ && sudo udevadm control --reload
+ENV{ID_BUS}=="usb", ENV{ID_FS_LABEL}=="ROOTFS", ENV{ID_FS_TYPE}=="btrfs", ENV{ID_FS_USAGE}="r36s-ignorar", ENV{UDISKS_IGNORE}="1"

@@ -1,0 +1,16 @@
+#!/usr/bin/bash
+# sunshine-start — inicia o Sunshine com o display certo.
+#
+# No Game Mode (gamescope), o serviço de usuário não herda WAYLAND_DISPLAY. Sem ele,
+# o encoder Vulkan da NVIDIA falha e o Sunshine cai para libx264 (software).
+# Instale em ~/.local/bin e aponte o serviço para cá (config/bazzite/sunshine-20-display.conf).
+#
+# Variável opcional: SUNSHINE_BIN (padrão: Sunshine do Homebrew do Bazzite).
+
+SUNSHINE_BIN=${SUNSHINE_BIN:-/home/linuxbrew/.linuxbrew/opt/sunshine/bin/sunshine}
+
+if pgrep -f "^/usr/bin/gamescope" >/dev/null && [ -S "$XDG_RUNTIME_DIR/gamescope-0" ]; then
+  export WAYLAND_DISPLAY=gamescope-0 DISPLAY=:0
+fi
+
+exec "$SUNSHINE_BIN" "$@"

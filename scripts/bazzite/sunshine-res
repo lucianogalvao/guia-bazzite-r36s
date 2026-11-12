@@ -1,0 +1,68 @@
+#!/usr/bin/bash
+# sunshine-res — resolução da tela durante o streaming.
+#
+# Uso: sunshine-res tv | parar | monitor
+#   tv       põe a saída em TV_MODE (chamado pelo Sunshine ao conectar)
+#   parar    só desliga o vigia e mantém a resolução atual (chamado ao desconectar)
+#   monitor  volta para NATIVE_MODE (manual)
+#
+# Ligue no ~/.config/sunshine/sunshine.conf:
+#   global_prep_cmd = [{"do":"/home/USUARIO/.local/bin/sunshine-res tv","undo":"/home/USUARIO/.local/bin/sunshine-res parar"}]
+#
+# Modo Desktop (KDE): usa kscreen-doctor.
+# Game Mode: grava ~/.config/gamescope/modes.cfg e avisa o gamescope (GAMESCOPE_DISPLAY_MODE_NUDGE).
+# Também muda o Xwayland dos jogos (GAMESCOPE_XWAYLAND_MODE_CONTROL); sem isso, o jogo fica
+# com barras pretas nos quatro lados. A Steam devolve a resolução nativa a cada jogo aberto,
+# então durante o streaming um vigia reaplica TV_MODE a cada 2 segundos.
+
+# ---- Ajuste para o seu monitor ------------------------------------------------
+OUT=${OUT:-SAIDA-DE-VIDEO}              # ex.: DP-3   (veja: kscreen-doctor -o)
+MON_NAME=${MON_NAME:-"Fabricante Modelo"} # nome do monitor no modes.cfg do gamescope
+TV_MODE=${TV_MODE:-1920x1080@60}
+NATIVE_MODE=${NATIVE_MODE:-3440x1440@100}
+# -------------------------------------------------------------------------------
+
+export XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}
+export DBUS_SESSION_BUS_ADDRESS=unix:path=$XDG_RUNTIME_DIR/bus
+LOG=$HOME/.config/sunshine/sunshine-res.log
+PIDF=$XDG_RUNTIME_DIR/sunshine-res-watch.pid
+
+stop_watch() { [ -f "$PIDF" ] && kill "$(cat "$PIDF")" 2>/dev/null; rm -f "$PIDF"; }
+
+case "$1" in
+  parar)   stop_watch; echo "$(date '+%F %T') parar (vigia desligado)" >> "$LOG"; exit 0 ;;
+  tv)      MODE=$TV_MODE ;;
+  monitor) MODE=$NATIVE_MODE ;;
+  *)       echo "uso: $0 tv|parar|monitor"; exit 1 ;;
+esac
+
+echo "$(date '+%F %T') $1 -> $MODE" >> "$LOG"
+
+if pgrep -x kwin_wayland >/dev/null; then
+  WAYLAND_DISPLAY=wayland-1 QT_QPA_PLATFORM=wayland kscreen-doctor "output.$OUT.mode.$MODE" >> "$LOG" 2>&1
+
+elif pgrep -f "^/usr/bin/gamescope" >/dev/null; then
+  echo "$MON_NAME:$MODE 0" > "$HOME/.config/gamescope/modes.cfg"
+  export DISPLAY=:0 XAUTHORITY=$(ls -t "$XDG_RUNTIME_DIR"/xauth_* 2>/dev/null | head -1)
+  xprop -root -f GAMESCOPE_DISPLAY_MODE_NUDGE 32c -set GAMESCOPE_DISPLAY_MODE_NUDGE 1 >> "$LOG" 2>&1
+
+  W=${MODE%%x*}; H=${MODE#*x}; H=${H%%@*}
+  sleep 1
+  xprop -root -f GAMESCOPE_XWAYLAND_MODE_CONTROL 32c -set GAMESCOPE_XWAYLAND_MODE_CONTROL "1,$W,$H,0" >> "$LOG" 2>&1
+
+  stop_watch
+  if [ "$1" = tv ]; then
+    setsid bash -c "
+      while sleep 2; do
+        cur=\$(DISPLAY=:1 timeout 3 xrandr 2>/dev/null | sed -n 's/.*current \([0-9]*\) x \([0-9]*\),.*/\1x\2/p')
+        if [ -n \"\$cur\" ] && [ \"\$cur\" != \"${W}x${H}\" ]; then
+          echo \"\$(date '+%F %T') vigia: Xwayland jogos \$cur -> ${W}x${H}\" >> \"$LOG\"
+          DISPLAY=:0 xprop -root -f GAMESCOPE_XWAYLAND_MODE_CONTROL 32c -set GAMESCOPE_XWAYLAND_MODE_CONTROL 1,$W,$H,0
+        fi
+      done" </dev/null >/dev/null 2>&1 &
+    echo $! > "$PIDF"
+  fi
+fi
+
+sleep 2
+exit 0

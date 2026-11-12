@@ -1,0 +1,4 @@
+# /etc/sudoers.d/80-triggercmd-power   (troque USUARIO; edite com: sudo visudo -f /etc/sudoers.d/80-triggercmd-power)
+# Libera SÓ desligar e reiniciar sem senha, para os gatilhos da Alexa (TRIGGERcmd).
+# Gatilhos: "sudo -n systemctl poweroff" e "sudo -n systemctl reboot".
+USUARIO ALL=(root) NOPASSWD: /usr/bin/systemctl poweroff, /usr/bin/systemctl reboot

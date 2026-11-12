@@ -1,0 +1,15 @@
+# /etc/systemd/system/sunshine-resume.service
+# Reinicia o Sunshine do usuário depois de acordar da suspensão. Sem isso, ele perde a tela
+# ("No displays were found"). Troque USUARIO pelo seu usuário.
+#   sudo systemctl daemon-reload && sudo systemctl enable sunshine-resume.service
+[Unit]
+Description=Reinicia o Sunshine depois de acordar da suspensão
+After=suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target
+
+[Service]
+Type=oneshot
+ExecStartPre=/usr/bin/sleep 8
+ExecStart=/usr/bin/systemctl --user -M USUARIO@ restart app-dev.lizardbyte.app.Sunshine
+
+[Install]
+WantedBy=suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target

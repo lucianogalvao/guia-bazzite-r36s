@@ -1,0 +1,21 @@
+# ~/.config/systemd/user/triggercmdagent.service
+# Agente TRIGGERcmd extraído do .rpm em ~/.local/opt/triggercmdagent (sem instalar no sistema).
+#   rpm2cpio triggercmdagent-*.rpm | cpio -idm   (e mova a pasta do app para ~/.local/opt/triggercmdagent)
+#   loginctl enable-linger "$USER"
+#   systemctl --user enable --now triggercmdagent
+# %h = pasta pessoal do usuário.
+[Unit]
+Description=TRIGGERcmd Agent (background)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+Environment=ELECTRON_RUN_AS_NODE=1
+WorkingDirectory=%h/.local/opt/triggercmdagent/resources/app/src
+ExecStart=%h/.local/opt/triggercmdagent/triggercmdagent %h/.local/opt/triggercmdagent/resources/app/src/daemon.js --run %h/.TRIGGERcmdData
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target

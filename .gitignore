@@ -1,0 +1,39 @@
+# Imagens de disco, backups e downloads
+*.img
+*.iso
+*.7z
+*.chd
+*.torrent
+*.aria2
+
+# Coleção pessoal (inventários gerados)
+inv.json
+roms.json
+escolhas/
+manifest.tsv
+
+# ROMs, BIOS, chaves e saves nunca entram
+*.zip
+*.n64
+*.z64
+*.v64
+*.nds
+*.gb
+*.gbc
+*.gba
+*.nes
+*.sfc
+*.smc
+*.bin
+*.cue
+*.pbp
+*.xci
+*.nsp
+prod.keys
+title.keys
+*.srm
+*.state*
+
+# Sistema
+.DS_Store
+__pycache__/
