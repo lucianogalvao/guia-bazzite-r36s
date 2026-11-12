@@ -66,6 +66,9 @@ class TestChat(unittest.TestCase):
         r = novo(HttpFalso([loop] * 3)).responder([], [], lambda n, a: {}, max_rodadas=3)
         self.assertEqual(r["texto"], "Não consegui terminar. Peça ao Claude.")
 
+    def test_sistema_proibe_dizer_aprovado(self):
+        self.assertIn("Nunca diga que algo foi aprovado ou feito", chat.SISTEMA)
+
     def test_aviso_gpu_com_jogo(self):
         tabela = "|    0   N/A  N/A   26589    C+G   ...bin/eden        746MiB |\n"
         ex = ExecutorFalso({("nvidia-smi",): Resultado(0, tabela, "")})
