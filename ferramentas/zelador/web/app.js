@@ -28,8 +28,15 @@ async function api(metodo, caminho, corpo) {
 
 // ---------- PIN ----------
 function mostrarPin() { $("#tela-app").hidden = true; $("#tela-pin").hidden = false; $("#pin").focus(); }
+function saudacao() {
+  const h = new Date().getHours();
+  return h < 5 ? "Boa madrugada" : h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
+}
+
+let primeiraPintura = true;
 function mostrarApp() {
   $("#tela-pin").hidden = true; $("#tela-app").hidden = false;
+  $("#saudacao").textContent = saudacao();
   atualizarEstado(); vigiarTarefas(); carregarPropostas(); carregarRegistro();
 }
 
@@ -48,10 +55,11 @@ function gb(v) { return v == null ? "?" : `${Math.round(v)} GB livres`; }
 function pintarPainel(s) {
   const discosOk = Object.values(s.discos || {}).every(Boolean);
   const sunshine = s.sunshine === "active";
-  let classe = "anel-ok", frase = "Pronto para jogar na TV";
+  let classe = "anel-ok", frase = "Tudo pronto para jogar na TV";
   if (!sunshine) { classe = "anel-atencao"; frase = "O streaming está parado"; }
   if (!discosOk) { classe = "anel-perigo"; frase = "Um disco não montou"; }
-  $("#anel").className = `anel ${classe}`;
+  $("#anel").className = `anel ${classe}${primeiraPintura ? " acendendo" : ""}`;
+  if (primeiraPintura) { primeiraPintura = false; setTimeout(() => $("#anel").classList.remove("acendendo"), 1000); }
   $("#frase").textContent = frase;
 
   const livre = s.livre_gb || {};
@@ -188,7 +196,7 @@ async function enviar(texto, forcar = false) {
   if (!texto) return;
   limparVazio();
   if (!forcar) { historico.push({ role: "user", content: texto }); adicionarMsg("user", texto); }
-  const esperando = el("div", { class: "msg assistant pensando" }, "Pensando");
+  const esperando = el("div", { class: "msg assistant pensando" }, "Deixa eu ver");
   $("#mensagens").append(esperando);
   esperando.scrollIntoView({ block: "end", behavior: "smooth" });
   try {

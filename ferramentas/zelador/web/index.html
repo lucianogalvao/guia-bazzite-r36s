@@ -9,12 +9,15 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Zelador">
 <meta name="theme-color" content="#141A2E">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon-32.png" type="image/png" sizes="32x32">
 <link rel="apple-touch-icon" href="icone-180.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="marca" viewBox="0 0 64 64"><circle cx="32" cy="32" r="19" fill="none" stroke="currentColor" stroke-width="7"/><circle cx="32" cy="32" r="6.5" fill="currentColor"/></symbol>
   <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
   <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="m16 16 4.5 4.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
   <symbol id="i-gauge" viewBox="0 0 24 24"><path d="M4 16a8 8 0 1 1 16 0" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="m12 16 4-5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
@@ -29,7 +32,7 @@
   <section id="tela-pin" hidden>
     <div class="anel anel-neutro" aria-hidden="true"><span></span></div>
     <h1 class="pin-titulo">Zelador</h1>
-    <p class="sutil">Digite o PIN do PC da sala.</p>
+    <p class="sutil">Oi! Digite o PIN para cuidar do PC da sala.</p>
     <form id="form-pin">
       <input id="pin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="current-password" aria-label="PIN">
       <button class="acao acao-primaria" type="submit"><span class="acao-texto">Entrar</span></button>
@@ -38,6 +41,12 @@
   </section>
 
   <section id="tela-app" hidden>
+    <div class="marca">
+      <svg class="marca-simbolo" aria-hidden="true"><use href="#marca"/></svg>
+      <div class="marca-nome">Zelador<span>do PC da sala</span></div>
+      <p id="saudacao" class="saudacao"></p>
+    </div>
+
     <header class="painel" aria-live="polite">
       <div id="anel" class="anel anel-neutro" aria-hidden="true"><span></span></div>
       <div class="painel-texto">
@@ -62,9 +71,9 @@
 
     <section class="conversa">
       <h2>Conversar com o Zelador</h2>
-      <div id="mensagens"><p class="vazio">Peça algo como “organiza o que tem em Downloads” ou “por que a TV não conecta?”.</p></div>
+      <div id="mensagens"><p class="vazio">Oi! Eu cuido do PC da sala. Posso reiniciar o streaming, explicar um erro, organizar os Downloads, fechar um jogo travado ou levar jogos para o R36S. É só pedir.</p></div>
       <form id="form-chat">
-        <textarea id="texto" rows="1" placeholder="Escreva um pedido"></textarea>
+        <textarea id="texto" rows="1" placeholder="Peça para o Zelador"></textarea>
         <button class="enviar" type="submit" aria-label="Enviar"><svg class="icone"><use href="#i-send"/></svg></button>
       </form>
     </section>
