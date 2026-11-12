@@ -1,0 +1,16 @@
+# ~/.config/systemd/user/zelador.service
+# Página do Zelador na porta 8787 (só rede de casa). Código em ~/.local/share/zelador
+# (cópia de ferramentas/zelador do guia).
+#   systemctl --user daemon-reload && systemctl --user enable --now zelador
+[Unit]
+Description=Zelador: botões e chat do PC console
+After=network-online.target
+
+[Service]
+WorkingDirectory=%h/.local/share/zelador
+ExecStart=/usr/bin/python3 -m zelador servir
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

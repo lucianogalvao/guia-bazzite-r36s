@@ -49,6 +49,7 @@ Cada documento segue o mesmo formato: **Objetivo**, **Pré-requisitos**, **Passo
 | 10 | [Problemas e soluções](docs/bazzite/10-problemas.md) | Tela escura, erro 503, tela preta, suspensão |
 | 11 | [Backup dos saves](docs/bazzite/11-backup-saves.md) | rclone + Google Drive, timer a cada 30 min, histórico |
 | 12 | [Comandos do dia a dia](docs/bazzite/12-comandos.md) | Status, Sunshine, ROMs, Switch, R36S, tudo à mão |
+| 13 | [Zelador](docs/bazzite/13-zelador.md) | Botões e chat no iPhone, com modelo local (Ollama) |
 
 ### Portátil R36S com dArkOSRE
 

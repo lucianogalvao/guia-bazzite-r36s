@@ -1,0 +1,25 @@
+# ~/.config/containers/systemd/ollama.container  (Podman Quadlet, serviço de usuário "ollama")
+# Ollama com a placa NVIDIA via CDI. Só escuta em 127.0.0.1: quem fala com ele é o Zelador.
+# O modelo sai da memória de vídeo 5 min depois do último uso (OLLAMA_KEEP_ALIVE).
+#   mkdir -p /var/mnt/jogos/ollama ~/.config/containers/systemd
+#   cp ollama.container ~/.config/containers/systemd/
+#   systemctl --user daemon-reload && systemctl --user start ollama
+[Unit]
+Description=Ollama (modelo local do Zelador)
+After=network-online.target
+
+[Container]
+ContainerName=ollama
+Image=docker.io/ollama/ollama:0.40.16
+AddDevice=nvidia.com/gpu=all
+Volume=/var/mnt/jogos/ollama:/root/.ollama:Z
+PublishPort=127.0.0.1:11434:11434
+Environment=OLLAMA_KEEP_ALIVE=5m
+Environment=OLLAMA_MAX_LOADED_MODELS=1
+
+[Service]
+Restart=on-failure
+TimeoutStartSec=900
+
+[Install]
+WantedBy=default.target
