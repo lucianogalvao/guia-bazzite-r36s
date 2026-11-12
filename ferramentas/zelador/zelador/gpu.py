@@ -26,8 +26,14 @@ def processos(ex: Executor) -> list[dict]:
     return ps
 
 
-def jogo_rodando(ex: Executor) -> str | None:
+def jogo_aberto(ex: Executor) -> dict | None:
+    """Primeiro processo pesado na GPU que não é parte do sistema (Steam, Sunshine, ES-DE...)."""
     for p in processos(ex):
         if p["mib"] >= LIMITE_MIB and p["nome"] not in IGNORAR:
-            return p["nome"]
+            return {"pid": p["pid"], "nome": p["nome"]}
     return None
+
+
+def jogo_rodando(ex: Executor) -> str | None:
+    j = jogo_aberto(ex)
+    return j["nome"] if j else None

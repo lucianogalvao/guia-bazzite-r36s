@@ -181,6 +181,8 @@ textarea::placeholder { color: var(--sutil); }
   background: var(--superficie); border: 1px solid var(--linha); border-radius: var(--raio);
 }
 .atalho .icone { color: var(--acao); }
+.atalho-largo { grid-column: 1 / -1; min-height: 64px; flex-direction: row; align-items: center; }
+#btn-fechar:not(:disabled) .icone { color: var(--perigo); }
 .atalho:active:not(:disabled) { background: var(--elevado); }
 
 /* ---------- PIN ---------- */

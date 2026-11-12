@@ -24,6 +24,9 @@ class TestGpu(unittest.TestCase):
         sem_eden = "\n".join(l for l in TABELA.splitlines() if "eden" not in l)
         self.assertIsNone(gpu.jogo_rodando(ex_com(sem_eden)))
 
+    def test_jogo_aberto_traz_pid(self):
+        self.assertEqual(gpu.jogo_aberto(ex_com(TABELA)), {"pid": 26589, "nome": "eden"})
+
     def test_sem_nvidia_smi_none(self):
         self.assertIsNone(gpu.jogo_rodando(ExecutorFalso({})))
 

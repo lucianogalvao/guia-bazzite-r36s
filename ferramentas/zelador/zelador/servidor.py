@@ -129,6 +129,12 @@ class Handler(BaseHTTPRequestHandler):
             r = app.chat.responder(hist, app.ferramentas, app.chamar)
             r["propostas"] = [x for x in app.propostas.pendentes() if x["id"] in r.get("propostas", [])]
             return self._json(200, r)
+        if p == "/api/fechar_jogo":
+            r = app.chamar("propor_fechar_jogo", {})
+            if "erro" in r:
+                return self._json(200, r)
+            prop = next((x for x in app.propostas.pendentes() if x["id"] == r["proposta"]), None)
+            return self._json(200, {"proposta": prop})
         if p.startswith("/api/aprovar/"):
             return self._json(200, app.propostas.aprovar(p.rsplit("/", 1)[-1], bool(corpo.get("confirmar_apagar"))))
         if p.startswith("/api/recusar/"):

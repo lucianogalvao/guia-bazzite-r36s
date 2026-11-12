@@ -91,6 +91,19 @@ class TestServidor(unittest.TestCase):
         ids = [t["id"] for t in json.loads(self.req("GET", "/api/tarefas")[1])]
         self.assertIn(tarefa, ids)
 
+    def test_rota_fechar_jogo_cria_proposta(self):
+        self.login()
+        self.ex.respostas[("nvidia-smi",)] = Resultado(0, "|    0   N/A  N/A   26589    C+G   /x/bin/eden   746MiB |\n", "")
+        st, corpo = self.req("POST", "/api/fechar_jogo", {})
+        d = json.loads(corpo)
+        self.assertEqual(st, 200)
+        self.assertEqual(d["proposta"]["passos"][0]["args"], ["kill", "-TERM", "26589"])
+
+    def test_rota_fechar_jogo_sem_jogo(self):
+        self.login()
+        st, corpo = self.req("POST", "/api/fechar_jogo", {})
+        self.assertEqual(json.loads(corpo), {"erro": "Nenhum jogo aberto."})
+
     def test_chat_avisa_com_jogo(self):
         self.login()
         self.ex.respostas[("nvidia-smi",)] = Resultado(0, "|    0   N/A  N/A   1    G   /x/eden   900MiB |\n", "")

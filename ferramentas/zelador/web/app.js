@@ -65,6 +65,8 @@ function pintarPainel(s) {
     chips.push([`Backup ${hora}`, false]);
   } else chips.push(["Sem backup dos saves", true]);
   $("#chips").replaceChildren(...chips.map(([t, alerta]) => el("li", alerta ? { class: "alerta" } : {}, t)));
+  $("#btn-fechar").disabled = !s.jogo;
+  $("#btn-fechar-texto").textContent = s.jogo ? `Fechar ${s.jogo}` : "Nenhum jogo aberto";
 }
 
 async function atualizarEstado() {
@@ -127,6 +129,18 @@ $("#btn-diag").addEventListener("click", async (ev) => {
     botoes.append(el("button", { class: "botao", onclick: () => enviar(`Explique este diagnóstico e o que fazer: ${dados.resumo}`) },
       "Pedir explicação"));
     resultado(itens.length ? "atencao" : "ok", el("div", {}, dados.resumo), botoes);
+  } catch (e) {
+    if (e.message !== "sem login") resultado("falha", SEM_CONEXAO);
+  } finally { b.disabled = false; }
+});
+
+$("#btn-fechar").addEventListener("click", async (ev) => {
+  const b = ev.currentTarget;
+  b.disabled = true;
+  try {
+    const { dados } = await api("POST", "/api/fechar_jogo", {});
+    if (dados.erro) { resultado("falha", dados.erro); atualizarEstado(); }
+    else resultado("atencao", cartaoProposta(dados.proposta));
   } catch (e) {
     if (e.message !== "sem login") resultado("falha", SEM_CONEXAO);
   } finally { b.disabled = false; }
@@ -247,6 +261,7 @@ function cartaoProposta(p) {
   function fechar(msg) {
     botoes.replaceChildren(el("span", { class: "sutil" }, msg));
     vigiarTarefas();
+    setTimeout(atualizarEstado, 2500);
   }
   botoes.append(aprovar, recusar);
   return c;

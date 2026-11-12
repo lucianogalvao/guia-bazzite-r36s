@@ -8,7 +8,7 @@ from zelador.executor import ExecutorFalso, Resultado
 from zelador.propostas import Propostas
 from zelador.tarefas import Tarefas
 
-NOMES = {"status", "diagnosticar", "ler_log", "reiniciar_sunshine", "listar_downloads", "propor_organizacao",
+NOMES = {"propor_fechar_jogo", "status", "diagnosticar", "ler_log", "reiniciar_sunshine", "listar_downloads", "propor_organizacao",
          "propor_apagar", "r36s_info", "propor_copia_r36s", "propor_ejetar_r36s"}
 
 
@@ -82,6 +82,27 @@ class TestFerramentas(unittest.TestCase):
         res = self.props.aprovar(r["proposta"], confirmar_apagar=True)
         self.assertFalse(res["ok"])
         self.assertIn("semeando", res["mensagem"])
+
+    def test_propor_fechar_jogo(self):
+        self.ex.respostas[("nvidia-smi",)] = Resultado(0, "|    0   N/A  N/A   26589    C+G   /x/bin/eden   746MiB |\n", "")
+        r = self.chamar("propor_fechar_jogo", {})
+        p = self.props.pendentes()[0]
+        self.assertEqual(r["proposta"], p["id"])
+        self.assertEqual(p["passos"][0]["args"], ["kill", "-TERM", "26589"])
+        self.assertIn("eden", p["passos"][0]["descricao"])
+        self.assertIn("não foi salvo", p["passos"][0]["descricao"])
+
+    def test_fechar_sem_jogo_aberto(self):
+        self.ex.respostas[("nvidia-smi",)] = Resultado(0, "", "")
+        self.assertEqual(self.chamar("propor_fechar_jogo", {}), {"erro": "Nenhum jogo aberto."})
+
+    def test_fechar_jogo_recusa_se_outro_jogo(self):
+        self.ex.respostas[("nvidia-smi",)] = Resultado(0, "|    0   N/A  N/A   26589    C+G   /x/bin/eden   746MiB |\n", "")
+        r = self.chamar("propor_fechar_jogo", {})
+        self.ex.respostas[("nvidia-smi",)] = Resultado(0, "|    0   N/A  N/A   30000    G   /x/bin/pcsx2   900MiB |\n", "")
+        res = self.props.aprovar(r["proposta"])
+        self.assertFalse(res["ok"])
+        self.assertIn("mudou", res["mensagem"])
 
     def test_erro_de_valor_vira_mensagem(self):
         r = self.chamar("propor_organizacao", {"itens": [{"origem": "/x.sfc", "sistema": "nada", "tipo": "base"}]})

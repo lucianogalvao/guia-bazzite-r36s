@@ -56,6 +56,7 @@ cd ~/.local/share/zelador && python3 -m zelador definir-pin
 | Situação | O que fazer |
 |---|---|
 | Moonlight dá erro na TV | **Reiniciar Sunshine**. Se não resolver, **O que está acontecendo?** |
+| Jogo ou emulador travado/aberto | Mais → **Fechar &lt;jogo&gt;** (ou peça no chat). Aprove na tela: o que não foi salvo se perde. Só fecha o que usa a placa de vídeo e não é Steam, Sunshine, ES-DE ou a área de trabalho |
 | Baixou jogos | Avançado → **Organizar Downloads**. Confira o plano e aprove. Arquivos de torrent que ainda semeiam são **copiados**, não movidos |
 | Quer pôr jogos no R36S | Cartão no leitor do PC → Avançado → **R36S**, depois peça no chat o que copiar |
 | Pergunta qualquer | Chat. Se não for algo que ele sabe fazer, ele responde "Não sei fazer isso. Peça ao Claude." |

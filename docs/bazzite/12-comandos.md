@@ -38,6 +38,13 @@ Para ler o log, procure por estas mensagens (as soluções estão em [10](10-pro
 | `Couldn't connect to Wayland display` | Sunshine iniciado no modo errado (Desktop × Game Mode). Reinicie no modo certo |
 | `libx264 [software]` | Caiu para o encoder por CPU: stream pesado. Veja [07](07-sunshine.md), passo 4 |
 
+Fechar um jogo ou emulador travado (o que não foi salvo se perde):
+
+```bash
+nvidia-smi | sed -n '/Processes/,$p'     # ache o PID do jogo
+kill -TERM <PID>                         # pede para fechar; se não fechar em ~10 s: kill -KILL <PID>
+```
+
 Trocar de modo sem mouse:
 
 ```bash

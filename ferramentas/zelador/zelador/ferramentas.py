@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 from typing import Callable
 
-from . import acoes, config, diagnostico, r36s, roms
+from . import acoes, config, diagnostico, gpu, r36s, roms
 from .executor import Executor
 from .propostas import Propostas
 
@@ -34,6 +34,7 @@ LISTA = [
            "required": ["origem", "sistema", "tipo"]}}}, ["itens"]),
     _f("propor_apagar", "Propõe apagar arquivos de Downloads ou de switch-extras. Exige confirmação dupla.",
        {"caminhos": _STR_LISTA}, ["caminhos"]),
+    _f("propor_fechar_jogo", "Propõe fechar o jogo ou emulador aberto (o que não foi salvo se perde). A pessoa aprova."),
     _f("r36s_info", "Mostra se o cartão do R36S está no leitor e quanto espaço tem."),
     _f("propor_copia_r36s", "Propõe copiar arquivos para uma pasta do cartão do R36S (ou 'bios').",
        {"arquivos": _STR_LISTA, "sistema": {"type": "string"}}, ["arquivos", "sistema"]),
@@ -72,7 +73,15 @@ def criar_registro(ex: Executor, propostas: Propostas,
             passos.append({"descricao": f"Apagar {p}", "args": ["rm", "--", str(p)], "apaga": True})
         return passos
 
+    def plano_fechar(entrada: dict) -> list[dict]:
+        j = gpu.jogo_aberto(ex)
+        if not j:
+            raise ValueError("Nenhum jogo aberto.")
+        return [{"descricao": f"Fechar {j['nome']} (o que não foi salvo será perdido)",
+                 "args": ["kill", "-TERM", str(j["pid"])], "apaga": False}]
+
     refazedores = {
+        "fechar_jogo": plano_fechar,
         "organizar": lambda e: roms.planejar(e["itens"], ativos()),
         "apagar": plano_apagar,
         "r36s_copia": lambda e: r36s.planejar_copia(e["arquivos"], e["sistema"], r36s.detectar(ex)),
@@ -88,6 +97,7 @@ def criar_registro(ex: Executor, propostas: Propostas,
         "listar_downloads": lambda: {"itens": roms.listar_downloads(ex, ativos=ativos())},
         "propor_organizacao": lambda itens: propor("Organizar Downloads", "organizar", {"itens": itens}),
         "propor_apagar": lambda caminhos: propor("Apagar arquivos", "apagar", {"caminhos": caminhos}),
+        "propor_fechar_jogo": lambda: propor("Fechar o jogo", "fechar_jogo", {}),
         "r36s_info": lambda: r36s.detectar(ex),
         "propor_copia_r36s": lambda arquivos, sistema: propor(
             f"Copiar para o R36S ({sistema})", "r36s_copia", {"arquivos": arquivos, "sistema": sistema}),
