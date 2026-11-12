@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import mimetypes
+import threading
 from functools import partial
 from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -14,6 +15,7 @@ from .auth import Auth, Bloqueado
 from .executor import Executor
 from .ferramentas import criar_registro
 from .propostas import Propostas
+from .registro import Registro
 from .tarefas import Tarefas
 
 mimetypes.add_type("application/manifest+json", ".webmanifest")
@@ -23,12 +25,27 @@ class App:
     def __init__(self, ex: Executor, estado: Path, web: Path, chat=None, esperar_sunshine: float = 3):
         self.ex, self.web = ex, Path(web).resolve()
         self.auth = Auth(estado)
-        self.tarefas = Tarefas(Path(estado) / "tarefas")
-        self.propostas = Propostas(Path(estado) / "propostas", self.tarefas)
+        self.registro = Registro(Path(estado) / "registro")
+        self.tarefas = Tarefas(Path(estado) / "tarefas", ao_terminar=self._tarefa_terminou)
+        self.propostas = Propostas(Path(estado) / "propostas", self.tarefas, registro=self.registro)
         self.chat = chat or chat_mod.Chat(config.OLLAMA_URL, config.MODELO, config.KEEP_ALIVE)
-        self.ferramentas, self.chamar = criar_registro(ex, self.propostas)
+        self.ferramentas, chamar = criar_registro(ex, self.propostas)
+        self._local = threading.local()  # ferramentas usadas, por requisição (cada uma tem sua thread)
+
+        def chamar_anotando(nome: str, args: dict) -> dict:
+            self._local.__dict__.setdefault("usadas", []).append(nome)
+            return chamar(nome, args)
+        self.chamar = chamar_anotando
         self.acoes = dict(acoes.ACOES)
         self.acoes["reiniciar_sunshine"] = partial(acoes.reiniciar_sunshine, esperar=esperar_sunshine)
+
+
+    def _tarefa_terminou(self, e: dict) -> None:
+        sit = {"ok": "concluída", "falhou": "falhou"}.get(e["situacao"], e["situacao"])
+        self.registro.anotar("tarefa", f"{e['titulo']}: {sit} ({e['passo']}/{e['total']})")
+
+
+NOMES_ACAO = {"reiniciar_sunshine": "Reiniciar o streaming", "backup_agora": "Backup dos saves", "status": "Status"}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -59,6 +76,9 @@ class Handler(BaseHTTPRequestHandler):
         except ValueError:
             return {}
 
+    def _anotar(self, tipo: str, texto: str) -> None:
+        self.app.registro.anotar(tipo, texto, origem=self.client_address[0])
+
     def _logado(self) -> bool:
         c = SimpleCookie(self.headers.get("Cookie") or "")
         return self.app.auth.valida(c["zelador"].value if "zelador" in c else None)
@@ -87,7 +107,10 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200, acoes.status(app.ex))
         if p == "/api/diagnostico":
             itens = diagnostico.regras(diagnostico.coletar(app.ex))
+            self._anotar("diagnostico", diagnostico.resumo(itens))
             return self._json(200, {"itens": itens, "resumo": diagnostico.resumo(itens)})
+        if p == "/api/registro":
+            return self._json(200, app.registro.listar())
         if p == "/api/propostas":
             return self._json(200, app.propostas.pendentes())
         if p == "/api/tarefas":
@@ -109,24 +132,38 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 ok = app.auth.conferir(str(corpo.get("pin", "")))
             except Bloqueado:
+                self._anotar("login", "Bloqueado: muitas tentativas")
                 return self._json(429, {"erro": "Muitas tentativas. Espere um minuto."})
             if not ok:
+                self._anotar("login", "PIN errado")
                 return self._json(401, {"erro": "PIN errado."})
+            self._anotar("login", "Entrou")
             t = app.auth.nova_sessao()
             return self._json(200, {"ok": True},
                               cookie=f"zelador={t}; HttpOnly; SameSite=Strict; Path=/; Max-Age=31536000")
         if not self._logado():
             return self._json(401, {"erro": "Entre com o PIN."})
         if p.startswith("/api/acao/"):
-            f = app.acoes.get(p.rsplit("/", 1)[-1])
-            return self._json(200, f(app.ex)) if f else self._json(404, {"erro": "Ação não existe."})
+            nome = p.rsplit("/", 1)[-1]
+            f = app.acoes.get(nome)
+            if not f:
+                return self._json(404, {"erro": "Ação não existe."})
+            r = f(app.ex)
+            resumo = r.get("mensagem") or ("Sunshine " + str(r.get("sunshine")) if nome == "status" else "feito")
+            self._anotar("acao", f"{NOMES_ACAO.get(nome, nome)}: {resumo}")
+            return self._json(200, r)
         if p == "/api/chat":
             hist = [m for m in corpo.get("historico", []) if isinstance(m, dict)
                     and m.get("role") in ("user", "assistant") and isinstance(m.get("content"), str)][-20:]
             aviso = chat_mod.aviso_gpu(app.ex)
             if aviso and not corpo.get("forcar"):
                 return self._json(200, {"aviso": aviso})
+            app._local.usadas = []
             r = app.chat.responder(hist, app.ferramentas, app.chamar)
+            pergunta = next((m["content"] for m in reversed(hist) if m["role"] == "user"), "")
+            us = app._local.usadas
+            usadas = f" [ferramentas: {', '.join(dict.fromkeys(us))}]" if us else ""
+            self._anotar("chat", f"Pergunta: {pergunta} → Resposta: {r.get('texto', '')}{usadas}")
             r["propostas"] = [x for x in app.propostas.pendentes() if x["id"] in r.get("propostas", [])]
             return self._json(200, r)
         if p == "/api/fechar_jogo":

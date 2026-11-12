@@ -30,7 +30,7 @@ async function api(metodo, caminho, corpo) {
 function mostrarPin() { $("#tela-app").hidden = true; $("#tela-pin").hidden = false; $("#pin").focus(); }
 function mostrarApp() {
   $("#tela-pin").hidden = true; $("#tela-app").hidden = false;
-  atualizarEstado(); vigiarTarefas(); carregarPropostas();
+  atualizarEstado(); vigiarTarefas(); carregarPropostas(); carregarRegistro();
 }
 
 $("#form-pin").addEventListener("submit", async (ev) => {
@@ -96,7 +96,7 @@ async function rodarAcao(nome, botao) {
     const { dados } = await api("POST", "/api/acao/" + nome);
     if (nome === "status") resultado("", tabelaStatus(dados));
     else resultado(dados.ok ? "ok" : "falha", dados.mensagem || "Feito.");
-    atualizarEstado();
+    atualizarEstado(); carregarRegistro();
   } catch (e) {
     if (e.message !== "sem login") resultado("falha", SEM_CONEXAO);
   } finally { if (botao) botao.disabled = false; }
@@ -203,6 +203,7 @@ async function enviar(texto, forcar = false) {
       return;
     }
     historico.push({ role: "assistant", content: dados.texto });
+    carregarRegistro();
     adicionarMsg("assistant", dados.texto);
     for (const p of dados.propostas || []) if (!propostasNaTela.has(p.id)) $("#mensagens").append(cartaoProposta(p));
   } catch (e) {
@@ -260,8 +261,8 @@ function cartaoProposta(p) {
   });
   function fechar(msg) {
     botoes.replaceChildren(el("span", { class: "sutil" }, msg));
-    vigiarTarefas();
-    setTimeout(atualizarEstado, 2500);
+    vigiarTarefas(); carregarRegistro();
+    setTimeout(() => { atualizarEstado(); carregarRegistro(); }, 2500);
   }
   botoes.append(aprovar, recusar);
   return c;
@@ -281,8 +282,51 @@ $("#form-chat").addEventListener("submit", (ev) => {
 
 // Ao voltar para o app (iPhone), atualiza o painel, as tarefas e as propostas.
 document.addEventListener("visibilitychange", () => {
-  if (!document.hidden && !$("#tela-app").hidden) { atualizarEstado(); vigiarTarefas(); carregarPropostas(); }
+  if (!document.hidden && !$("#tela-app").hidden) { atualizarEstado(); vigiarTarefas(); carregarPropostas(); carregarRegistro(); }
 });
+
+// ---------- Registro ----------
+const NOMES_TIPO = { acao: "Botão", chat: "Conversa", proposta: "Proposta", tarefa: "Tarefa",
+  login: "Entrada", diagnostico: "Diagnóstico" };
+let registroItens = [], registroMostrando = 40;
+
+function diaLegivel(d) {
+  const hoje = new Date(); const ontem = new Date(Date.now() - 864e5);
+  const iso = (x) => x.toLocaleDateString("sv-SE");
+  if (d === iso(hoje)) return "Hoje";
+  if (d === iso(ontem)) return "Ontem";
+  const [a, m, dd] = d.split("-");
+  return `${dd}/${m}/${a}`;
+}
+
+function desenharRegistro() {
+  const lista = $("#registro-lista");
+  if (!registroItens.length) { lista.replaceChildren(el("p", { class: "vazio" }, "Nada registrado ainda.")); }
+  else {
+    const nos = []; let diaAtual = null;
+    for (const i of registroItens.slice(0, registroMostrando)) {
+      const [dia, hora] = i.quando.split(" ");
+      if (dia !== diaAtual) { diaAtual = dia; nos.push(el("div", { class: "registro-dia" }, diaLegivel(dia))); }
+      const erro = /errado|falhou|Barrada|não voltou|Não consegui/.test(i.texto);
+      nos.push(el("div", { class: `registro-item${erro ? " erro-item" : ""}` },
+        el("time", {}, hora.slice(0, 5)),
+        el("span", { class: `registro-tipo t-${i.tipo}` }, NOMES_TIPO[i.tipo] || i.tipo),
+        el("p", {}, i.texto)));
+    }
+    lista.replaceChildren(...nos);
+  }
+  $("#btn-registro-mais").hidden = registroItens.length <= registroMostrando;
+}
+
+async function carregarRegistro() {
+  try {
+    const { dados } = await api("GET", "/api/registro");
+    registroItens = Array.isArray(dados) ? dados : [];
+    desenharRegistro();
+  } catch { /* sem login ou offline */ }
+}
+$("#btn-registro").addEventListener("click", carregarRegistro);
+$("#btn-registro-mais").addEventListener("click", () => { registroMostrando += 40; desenharRegistro(); });
 
 // ---------- Início ----------
 api("GET", "/api/status").then(mostrarApp).catch(() => {});

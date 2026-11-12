@@ -61,6 +61,12 @@ cd ~/.local/share/zelador && python3 -m zelador definir-pin
 | Quer pôr jogos no R36S | Cartão no leitor do PC → Avançado → **R36S**, depois peça no chat o que copiar |
 | Pergunta qualquer | Chat. Se não for algo que ele sabe fazer, ele responde "Não sei fazer isso. Peça ao Claude." |
 
+**Registro:** toda ação fica anotada, resumida, na seção "Registro dos últimos 7 dias" da página: entradas (com o IP do aparelho e PIN errado), botões, conversas (pergunta, resposta e ferramentas usadas), propostas (criada, aprovada, recusada ou barrada) e tarefas (concluída ou falhou). Os arquivos ficam em `~/.local/state/zelador/registro/AAAA-MM-DD.jsonl`, um por dia, e os com mais de 7 dias são apagados sozinhos. Pelo terminal:
+
+```bash
+tail -n 20 ~/.local/state/zelador/registro/$(date +%F).jsonl
+```
+
 O modelo ocupa a placa de vídeo enquanto responde e sai dela 5 minutos depois. Se houver um jogo aberto, o chat avisa antes de carregar.
 
 ## Verificação

@@ -20,6 +20,7 @@ python3 -m zelador definir-pin                    # trocar o PIN
 | `r36s.py` | Cartão do R36S: só `EASYROMS`, nunca monta o `ROOTFS` |
 | `propostas.py` | Planos que mudam arquivos; só rodam após "Aprovar" |
 | `tarefas.py` | Execução em segundo plano com log em `~/.local/state/zelador/tarefas` |
+| `registro.py` | Registro das ações, um `.jsonl` por dia, guarda 7 dias |
 | `ferramentas.py` | A lista fechada do que o modelo pode fazer |
 | `chat.py` | Conversa com o Ollama |
 | `auth.py` / `servidor.py` | PIN, cookie e rotas HTTP |

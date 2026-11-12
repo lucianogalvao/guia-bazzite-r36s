@@ -104,6 +104,43 @@ class TestServidor(unittest.TestCase):
         st, corpo = self.req("POST", "/api/fechar_jogo", {})
         self.assertEqual(json.loads(corpo), {"erro": "Nenhum jogo aberto."})
 
+    def registro(self):
+        return json.loads(self.req("GET", "/api/registro")[1])
+
+    def test_registro_exige_login(self):
+        self.assertEqual(self.req("GET", "/api/registro")[0], 401)
+
+    def test_registro_de_login_errado_e_acao(self):
+        self.login("9999")
+        self.login()
+        self.req("POST", "/api/acao/reiniciar_sunshine")
+        itens = self.registro()
+        tipos = [i["tipo"] for i in itens]
+        self.assertEqual(tipos[:3], ["acao", "login", "login"])
+        self.assertIn("Sunshine reiniciado", itens[0]["texto"])
+        self.assertIn("PIN errado", itens[2]["texto"])
+        self.assertEqual(itens[0]["origem"], "127.0.0.1")
+
+    def test_registro_de_chat_e_proposta(self):
+        self.login()
+        self.req("POST", "/api/chat", {"historico": [{"role": "user", "content": "como está o PC?"}], "forcar": True})
+        id_ = self.srv.app.propostas.criar("Organizar Downloads", [{"descricao": "d", "args": ["true"], "apaga": False}])
+        self.req("POST", f"/api/aprovar/{id_}", {})
+        textos = " | ".join(i["texto"] for i in self.registro())
+        self.assertIn("como está o PC?", textos)
+        self.assertIn("Aprovada: Organizar Downloads", textos)
+
+    def test_registro_de_tarefa_concluida(self):
+        self.login()
+        id_ = self.srv.app.propostas.criar("Rápida", [{"descricao": "d", "args": ["true"], "apaga": False}])
+        self.req("POST", f"/api/aprovar/{id_}", {})
+        fim = time.time() + 5
+        while time.time() < fim and not any(i["tipo"] == "tarefa" for i in self.registro()):
+            time.sleep(0.05)
+        t = [i for i in self.registro() if i["tipo"] == "tarefa"][0]
+        self.assertIn("Rápida", t["texto"])
+        self.assertIn("concluída", t["texto"])
+
     def test_chat_avisa_com_jogo(self):
         self.login()
         self.ex.respostas[("nvidia-smi",)] = Resultado(0, "|    0   N/A  N/A   1    G   /x/eden   900MiB |\n", "")

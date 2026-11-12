@@ -19,12 +19,17 @@ VALIDADE_S = 3600
 
 class Propostas:
     def __init__(self, dir: Path, tarefas: Tarefas,
-                 refazedores: dict[str, Callable[[dict], list[dict]]] | None = None):
+                 refazedores: dict[str, Callable[[dict], list[dict]]] | None = None, registro=None):
         self.dir = Path(dir)
         self.dir.mkdir(parents=True, exist_ok=True)
         self.tarefas = tarefas
         self.refazedores = dict(refazedores or {})
+        self.registro = registro
         self._lock = threading.Lock()
+
+    def _anotar(self, texto: str) -> None:
+        if self.registro:
+            self.registro.anotar("proposta", texto)
 
     def _arq(self, id_: str) -> Path:
         return self.dir / f"{id_}.json"
@@ -36,6 +41,7 @@ class Propostas:
         tmp = self.dir / f"{id_}.tmp"
         tmp.write_text(json.dumps(p, ensure_ascii=False))
         tmp.replace(self._arq(id_))
+        self._anotar(f"Criada: {titulo} ({len(passos)} passo(s))")
         return id_
 
     def pendentes(self) -> list[dict]:
@@ -68,15 +74,24 @@ class Propostas:
                     novos = self.refazedores[p["refazer"]](p.get("entrada"))
                 except (ValueError, KeyError) as e:
                     arq.unlink(missing_ok=True)
+                    self._anotar(f"Barrada: {p['titulo']}: {e}")
                     return {"ok": False, "mensagem": str(e)}
                 if novos != p["passos"]:
                     arq.unlink(missing_ok=True)
+                    self._anotar(f"Barrada (a situação mudou): {p['titulo']}")
                     return {"ok": False, "mensagem": "A situação mudou desde a proposta. Peça de novo."}
             arq.unlink()
         tarefa = self.tarefas.iniciar(p["titulo"], [x["args"] for x in p["passos"]])
+        self._anotar(f"Aprovada: {p['titulo']}: " + "; ".join(x["descricao"] for x in p["passos"]))
         return {"ok": True, "tarefa": tarefa}
 
     def recusar(self, id_: str) -> None:
         if id_.isalnum():
             with self._lock:
-                self._arq(id_).unlink(missing_ok=True)
+                arq = self._arq(id_)
+                try:
+                    titulo = json.loads(arq.read_text())["titulo"]
+                except (OSError, ValueError, KeyError):
+                    return
+                arq.unlink(missing_ok=True)
+            self._anotar(f"Recusada: {titulo}")

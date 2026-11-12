@@ -185,6 +185,29 @@ textarea::placeholder { color: var(--sutil); }
 #btn-fechar:not(:disabled) .icone { color: var(--perigo); }
 .atalho:active:not(:disabled) { background: var(--elevado); }
 
+/* ---------- Registro ---------- */
+.registro-topo { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.registro-topo h2 { margin-bottom: 8px; }
+.botao-pequeno { min-height: 34px; padding: 4px 12px; font-size: 14px; }
+.registro-dia { margin: 14px 0 6px; font-size: 14px; font-weight: 600; color: var(--sutil); }
+.registro-item {
+  display: grid; grid-template-columns: 3.2em 6.5em 1fr; gap: 10px; align-items: baseline;
+  padding: 8px 0; border-bottom: 1px solid color-mix(in srgb, var(--linha) 60%, transparent);
+  font-size: 14px; overflow-wrap: anywhere;
+}
+.registro-item time { color: var(--sutil); }
+.registro-tipo { font-size: 12px; font-weight: 600; color: var(--sutil); }
+.registro-tipo.t-acao, .registro-tipo.t-tarefa { color: var(--ok); }
+.registro-tipo.t-proposta { color: var(--acao); }
+.registro-tipo.t-login { color: var(--atencao); }
+.registro-item.erro-item .registro-tipo { color: var(--perigo); }
+#btn-registro-mais { margin-top: 12px; }
+@media (max-width: 420px) {
+  .registro-item { grid-template-columns: 3.2em 1fr; }
+  .registro-item p { grid-column: 1 / -1; margin: 0; }
+}
+.registro-item p { margin: 0; }
+
 /* ---------- PIN ---------- */
 #tela-pin { display: flex; flex-direction: column; align-items: center; text-align: center; padding-top: 12vh; }
 .pin-titulo { margin-top: 24px; font-size: 30px; }
@@ -220,8 +243,9 @@ textarea::placeholder { color: var(--sutil); }
       "principais conversa"
       "resultado  conversa"
       "tarefas    conversa"
-      "mais       conversa";
-    grid-template-rows: auto auto auto auto 1fr;
+      "mais       conversa"
+      "registro   conversa";
+    grid-template-rows: auto auto auto auto auto 1fr;
     column-gap: 28px;
     align-items: start;
   }
@@ -230,6 +254,7 @@ textarea::placeholder { color: var(--sutil); }
   #resultado { grid-area: resultado; }
   #tarefas { grid-area: tarefas; }
   .mais { grid-area: mais; }
+  .registro { grid-area: registro; }
   .mais h2 { margin-top: 24px; }
   .conversa {
     grid-area: conversa;

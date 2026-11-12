@@ -10,8 +10,9 @@ from pathlib import Path
 
 
 class Tarefas:
-    def __init__(self, dir_logs: Path):
+    def __init__(self, dir_logs: Path, ao_terminar=None):
         self.dir = Path(dir_logs)
+        self.ao_terminar = ao_terminar
         self.dir.mkdir(parents=True, exist_ok=True)
         self._vivas: set[str] = set()
         self._lock = threading.Lock()
@@ -55,6 +56,11 @@ class Tarefas:
         finally:
             with self._lock:
                 self._vivas.discard(e["id"])
+            if self.ao_terminar:
+                try:
+                    self.ao_terminar(e)
+                except Exception:
+                    pass
 
     def estado(self, id_: str) -> dict:
         e = json.loads((self.dir / f"{id_}.json").read_text())
