@@ -47,6 +47,8 @@ Cada documento segue o mesmo formato: **Objetivo**, **Pré-requisitos**, **Passo
 | 08 | [Moonlight no Fire TV Stick](docs/bazzite/08-fire-tv.md) | Cliente principal na sala |
 | 09 | [Moonlight direto na TV Samsung](docs/bazzite/09-tv-samsung.md) | Plano B sem Fire Stick |
 | 10 | [Problemas e soluções](docs/bazzite/10-problemas.md) | Tela escura, erro 503, tela preta, suspensão |
+| 11 | [Backup dos saves](docs/bazzite/11-backup-saves.md) | rclone + Google Drive, timer a cada 30 min, histórico |
+| 12 | [Comandos do dia a dia](docs/bazzite/12-comandos.md) | Status, Sunshine, ROMs, Switch, R36S, tudo à mão |
 
 ### Portátil R36S com dArkOSRE
 

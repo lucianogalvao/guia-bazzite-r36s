@@ -1,0 +1,12 @@
+# ~/.config/systemd/user/backup-saves.service
+# Roda o scripts/bazzite/backup-saves (instalado em ~/.local/bin). Chamado pelo backup-saves.timer.
+[Unit]
+Description=Backup dos saves dos emuladores no Google Drive
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/backup-saves
+Nice=10
+IOSchedulingClass=idle

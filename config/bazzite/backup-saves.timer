@@ -1,0 +1,15 @@
+# ~/.config/systemd/user/backup-saves.timer
+# A cada 30 minutos, e 3 minutos depois de ligar. Persistent: se o PC estava desligado
+# na hora marcada, roda assim que ligar.
+#   systemctl --user daemon-reload && systemctl --user enable --now backup-saves.timer
+#   loginctl enable-linger $USER     # roda mesmo sem sessão aberta
+[Unit]
+Description=Backup dos saves a cada 30 minutos
+
+[Timer]
+OnBootSec=3min
+OnCalendar=*:00/30
+Persistent=true
+
+[Install]
+WantedBy=timers.target

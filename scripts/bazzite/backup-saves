@@ -1,0 +1,40 @@
+#!/usr/bin/bash
+# backup-saves — copia os saves dos emuladores para o Google Drive, com histórico.
+#
+# Uso: backup-saves            (normalmente chamado pelo timer config/bazzite/backup-saves.timer)
+#
+# Origem: Emulation/saves do EmuDeck. Cada emulador tem ali links para a pasta real
+# (RetroArch, Eden na NAND do NVMe etc.); o rclone segue os links (-L).
+#
+# No Drive:
+#   Bazzite-Saves/atual/               estado mais recente
+#   Bazzite-Saves/historico/<data>/    versões anteriores dos arquivos que mudaram ou sumiram
+# Versões com mais de RETENCAO são apagadas do histórico.
+#
+# Só ida: nada volta do Drive para o PC. Para restaurar, baixe o arquivo e copie de volta.
+# Requer um remote do rclone (padrão "gdrive", escopo drive.file).
+
+REMOTE=${REMOTE:-gdrive:Bazzite-Saves}
+ORIGEM=${ORIGEM:-/var/mnt/roms/Emulation/saves}
+RETENCAO=${RETENCAO:-90d}
+RCLONE=${RCLONE:-/home/linuxbrew/.linuxbrew/bin/rclone}
+
+set -u
+DATA=$(date +%Y-%m-%d_%H%M)
+
+if ! findmnt -rn /var/mnt/roms >/dev/null || ! findmnt -rn /var/mnt/jogos >/dev/null; then
+  echo "Disco não montado; backup cancelado para não apagar nada no Drive." >&2
+  exit 1
+fi
+
+"$RCLONE" sync -L "$ORIGEM" "$REMOTE/atual" \
+  --backup-dir "$REMOTE/historico/$DATA" \
+  --exclude ".directory" --exclude "*.tmp" \
+  --stats-one-line --stats 0 -v
+st=$?
+
+if "$RCLONE" lsf --dirs-only "$REMOTE" 2>/dev/null | grep -qx 'historico/'; then
+  "$RCLONE" delete "$REMOTE/historico" --min-age "$RETENCAO" --rmdirs -q || true
+fi
+
+exit $st
