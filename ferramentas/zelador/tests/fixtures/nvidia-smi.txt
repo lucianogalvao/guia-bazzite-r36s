@@ -1,0 +1,16 @@
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|    0   N/A  N/A            4096      C   ...rew/opt/sunshine/bin/sunshine        132MiB |
+|    0   N/A  N/A            6101    C+G   /usr/bin/kwin_wayland                    58MiB |
+|    0   N/A  N/A            6114      G   /usr/bin/plasmashell                     56MiB |
+|    0   N/A  N/A            6204      G   /usr/bin/Xwayland                         3MiB |
+|    0   N/A  N/A            6835      G   ...l/share/Steam/steamrt64/steam          6MiB |
+|    0   N/A  N/A            6866      G   ./steamwebhelper                         39MiB |
+|    0   N/A  N/A            6892      G   ...team/steamrt64/steamwebhelper        217MiB |
+|    0   N/A  N/A            8160      G   /app/lib/firefox/firefox                 49MiB |
+|    0   N/A  N/A           26402      G   ...281206175725659/usr/bin/es-de        113MiB |
+|    0   N/A  N/A           26589    C+G   ...16050999093682512908/bin/eden        746MiB |
++-----------------------------------------------------------------------------------------+
