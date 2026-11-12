@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Zelador</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Zelador">
+<meta name="theme-color" content="#101418">
+<link rel="apple-touch-icon" href="icone-180.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+  <section id="tela-pin" hidden>
+    <h1>Zelador</h1>
+    <p class="sutil">Digite o PIN do PC.</p>
+    <form id="form-pin">
+      <input id="pin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="current-password" aria-label="PIN">
+      <button class="grande primario" type="submit">Entrar</button>
+    </form>
+    <p id="pin-erro" class="erro" role="alert"></p>
+  </section>
+
+  <section id="tela-app" hidden>
+    <header><h1>Zelador</h1><span id="estado-pc" class="sutil"></span></header>
+
+    <div class="principais">
+      <button class="grande primario" data-acao="reiniciar_sunshine">Reiniciar Sunshine</button>
+      <button class="grande" id="btn-diag">O que está acontecendo?</button>
+    </div>
+    <div id="resultado" class="cartao" hidden aria-live="polite"></div>
+
+    <div id="tarefas"></div>
+
+    <section class="chat">
+      <h2>Conversar</h2>
+      <div id="mensagens"></div>
+      <form id="form-chat">
+        <textarea id="texto" rows="2" placeholder="Ex.: organiza o que tem em Downloads"></textarea>
+        <button class="primario" type="submit">Enviar</button>
+      </form>
+    </section>
+
+    <details class="avancado">
+      <summary>Avançado</summary>
+      <div class="grade">
+        <button data-acao="status">Status</button>
+        <button data-acao="backup_agora">Backup dos saves agora</button>
+        <button data-pedido="Organize o que tem em Downloads">Organizar Downloads</button>
+        <button data-pedido="O cartão do R36S está no leitor? Quanto espaço tem?">R36S</button>
+      </div>
+    </details>
+  </section>
+</main>
+<script src="app.js"></script>
+</body>
+</html>
