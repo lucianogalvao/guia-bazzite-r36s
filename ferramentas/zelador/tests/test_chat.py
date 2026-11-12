@@ -61,6 +61,16 @@ class TestChat(unittest.TestCase):
         r = novo(HttpFalso([URLError("connection refused")])).responder([], [], lambda n, a: {})
         self.assertEqual(r["texto"], "O modelo está indisponível agora. Os botões continuam funcionando.")
 
+    def test_mensagem_malformada_vira_indisponivel(self):
+        r = novo(HttpFalso([{"message": "texto solto"}])).responder([], [], lambda n, a: {})
+        self.assertEqual(r["texto"], chat.INDISPONIVEL)
+
+    def test_tempo_total_limitado(self):
+        loop = msg(tool_calls=[{"function": {"name": "status", "arguments": {}}}])
+        c = novo(HttpFalso([loop] * 5))
+        c.limite_total = 0
+        self.assertEqual(c.responder([], [], lambda n, a: {})["texto"], chat.ESGOTOU)
+
     def test_limite_de_rodadas(self):
         loop = msg(tool_calls=[{"function": {"name": "status", "arguments": {}}}])
         r = novo(HttpFalso([loop] * 3)).responder([], [], lambda n, a: {}, max_rodadas=3)

@@ -55,7 +55,7 @@ def planejar_copia(arquivos: list[str], sistema: str, info: dict) -> list[dict]:
     if not (Path(base) / sistema).is_dir():
         raise ValueError(f"Pasta {sistema} não existe no cartão.")
     destino = f"{base}/{sistema}/"
-    return [{"descricao": f"Copiar {Path(a).name} para o R36S ({sistema})", "args": ["cp", "-n", a, destino],
+    return [{"descricao": f"Copiar {a} para o R36S ({sistema})", "args": ["cp", "-n", "--", a, destino],
              "apaga": False} for a in arquivos]
 
 

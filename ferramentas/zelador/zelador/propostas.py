@@ -1,4 +1,7 @@
-"""Propostas: planos que mudam arquivos e só rodam depois de 'Aprovar' na página."""
+"""Propostas: planos que mudam arquivos e só rodam depois de 'Aprovar' na página.
+
+Ao aprovar, a proposta é refeita com a situação atual (cartão, torrents). Se mudou, é recusada.
+"""
 from __future__ import annotations
 
 import json
@@ -6,30 +9,44 @@ import secrets
 import threading
 import time
 from pathlib import Path
+from typing import Callable
 
 from .tarefas import Tarefas
 
 NAO_EXISTE = "Proposta não existe ou já foi aprovada."
+VALIDADE_S = 3600
 
 
 class Propostas:
-    def __init__(self, dir: Path, tarefas: Tarefas):
+    def __init__(self, dir: Path, tarefas: Tarefas,
+                 refazedores: dict[str, Callable[[dict], list[dict]]] | None = None):
         self.dir = Path(dir)
         self.dir.mkdir(parents=True, exist_ok=True)
         self.tarefas = tarefas
+        self.refazedores = dict(refazedores or {})
         self._lock = threading.Lock()
 
     def _arq(self, id_: str) -> Path:
         return self.dir / f"{id_}.json"
 
-    def criar(self, titulo: str, passos: list[dict]) -> str:
+    def criar(self, titulo: str, passos: list[dict], refazer: str | None = None, entrada=None) -> str:
         id_ = secrets.token_hex(4)
-        p = {"id": id_, "titulo": titulo, "passos": passos, "criada": time.time()}
-        self._arq(id_).write_text(json.dumps(p, ensure_ascii=False))
+        p = {"id": id_, "titulo": titulo, "passos": passos, "criada": time.time(),
+             "refazer": refazer, "entrada": entrada}
+        tmp = self.dir / f"{id_}.tmp"
+        tmp.write_text(json.dumps(p, ensure_ascii=False))
+        tmp.replace(self._arq(id_))
         return id_
 
     def pendentes(self) -> list[dict]:
-        ps = [json.loads(f.read_text()) for f in self.dir.glob("*.json")]
+        ps = []
+        for f in self.dir.glob("*.json"):
+            try:
+                p = json.loads(f.read_text())
+            except (OSError, ValueError):
+                continue
+            if time.time() - p.get("criada", 0) <= VALIDADE_S:
+                ps.append(p)
         return sorted(ps, key=lambda p: p["criada"])
 
     def aprovar(self, id_: str, confirmar_apagar: bool = False) -> dict:
@@ -37,11 +54,24 @@ class Propostas:
             return {"ok": False, "mensagem": NAO_EXISTE}
         with self._lock:
             arq = self._arq(id_)
-            if not arq.exists():
+            try:
+                p = json.loads(arq.read_text())
+            except (OSError, ValueError):
                 return {"ok": False, "mensagem": NAO_EXISTE}
-            p = json.loads(arq.read_text())
+            if time.time() - p.get("criada", 0) > VALIDADE_S:
+                arq.unlink(missing_ok=True)
+                return {"ok": False, "mensagem": "A proposta expirou. Peça de novo."}
             if any(x.get("apaga") for x in p["passos"]) and not confirmar_apagar:
                 return {"ok": False, "precisa_confirmar_apagar": True}
+            if p.get("refazer"):
+                try:
+                    novos = self.refazedores[p["refazer"]](p.get("entrada"))
+                except (ValueError, KeyError) as e:
+                    arq.unlink(missing_ok=True)
+                    return {"ok": False, "mensagem": str(e)}
+                if novos != p["passos"]:
+                    arq.unlink(missing_ok=True)
+                    return {"ok": False, "mensagem": "A situação mudou desde a proposta. Peça de novo."}
             arq.unlink()
         tarefa = self.tarefas.iniciar(p["titulo"], [x["args"] for x in p["passos"]])
         return {"ok": True, "tarefa": tarefa}

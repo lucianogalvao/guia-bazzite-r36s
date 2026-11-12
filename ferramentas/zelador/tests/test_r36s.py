@@ -55,13 +55,13 @@ class TestR36S(unittest.TestCase):
     def test_copia_jogo_e_save(self):
         info = r36s.detectar(lsblk(easyroms=str(self.mnt)))
         p = r36s.planejar_copia(["/x/j (USA).gba", "/x/j (USA).srm"], "gba", info)
-        self.assertEqual([x["args"] for x in p], [["cp", "-n", "/x/j (USA).gba", f"{self.mnt}/gba/"],
-                                                   ["cp", "-n", "/x/j (USA).srm", f"{self.mnt}/gba/"]])
+        self.assertEqual([x["args"] for x in p], [["cp", "-n", "--", "/x/j (USA).gba", f"{self.mnt}/gba/"],
+                                                   ["cp", "-n", "--", "/x/j (USA).srm", f"{self.mnt}/gba/"]])
 
     def test_copia_bios(self):
         info = r36s.detectar(lsblk(easyroms=str(self.mnt)))
         self.assertEqual(r36s.planejar_copia(["/x/scph1001.bin"], "bios", info)[0]["args"],
-                         ["cp", "-n", "/x/scph1001.bin", f"{self.mnt}/bios/"])
+                         ["cp", "-n", "--", "/x/scph1001.bin", f"{self.mnt}/bios/"])
 
     def test_pasta_inexistente(self):
         info = r36s.detectar(lsblk(easyroms=str(self.mnt)))

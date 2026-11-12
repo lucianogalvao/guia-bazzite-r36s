@@ -36,6 +36,36 @@ class TestPropostas(unittest.TestCase):
         self.assertEqual(self.p.pendentes(), [])
         self.assertFalse(self.p.aprovar(id_)["ok"])
 
+    def test_expira_apos_1h(self):
+        id_ = self.p.criar("x", [{"descricao": "d", "args": ["true"], "apaga": False}])
+        arq = self.p.dir / f"{id_}.json"
+        import json
+        d = json.loads(arq.read_text()); d["criada"] -= 3601; arq.write_text(json.dumps(d))
+        r = self.p.aprovar(id_)
+        self.assertFalse(r["ok"])
+        self.assertIn("expirou", r["mensagem"])
+
+    def test_refaz_e_recusa_se_mudou(self):
+        estado = {"n": 1}
+        self.p.refazedores["teste"] = lambda entrada: [{"descricao": str(estado["n"]), "args": ["true"], "apaga": False}]
+        id_ = self.p.criar("x", [{"descricao": "1", "args": ["true"], "apaga": False}], refazer="teste", entrada={})
+        estado["n"] = 2
+        r = self.p.aprovar(id_)
+        self.assertFalse(r["ok"])
+        self.assertIn("mudou", r["mensagem"])
+
+    def test_refaz_com_erro_recusa(self):
+        def falha(entrada):
+            raise ValueError("Cartão do R36S não encontrado.")
+        self.p.refazedores["r"] = falha
+        id_ = self.p.criar("x", [], refazer="r", entrada={})
+        self.assertEqual(self.p.aprovar(id_), {"ok": False, "mensagem": "Cartão do R36S não encontrado."})
+
+    def test_pendentes_ignora_arquivo_corrompido(self):
+        (self.p.dir / "ruim.json").write_text("{meio")
+        self.p.criar("x", [])
+        self.assertEqual(len(self.p.pendentes()), 1)
+
     def test_persiste_entre_instancias(self):
         id_ = self.p.criar("x", [{"descricao": "d", "args": ["true"], "apaga": False}])
         outra = Propostas(self.p.dir, self.tarefas)

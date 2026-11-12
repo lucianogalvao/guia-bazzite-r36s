@@ -24,7 +24,7 @@ class Base(unittest.TestCase):
         self.tmp = Path(tempfile.mkdtemp())
         self.roms, self.sw, self.ex = self.tmp / "roms", self.tmp / "switch", self.tmp / "extras"
         (self.roms / "snes").mkdir(parents=True)
-        self.p = mock.patch.multiple(config, ROMS=self.roms, SWITCH=self.sw, SWITCH_EXTRAS=self.ex)
+        self.p = mock.patch.multiple(config, ROMS=self.roms, SWITCH=self.sw, SWITCH_EXTRAS=self.ex, DOWNLOADS=Path("/dl"))
         self.p.start()
         self.addCleanup(self.p.stop)
 
@@ -37,7 +37,7 @@ class TestTorrents(Base):
             {"save_path": "/var/mnt/roms/Downloads", "name": "Jogo A (World)", "pieces": b"\x00\xff", "paused": 0}))
         (bt / "b.fastresume").write_bytes(bencode({"save_path": "/home/u/Downloads", "qBt-name": "Jogo B"}))
         self.assertEqual(roms.torrents_ativos(bt), {
-            Path("/var/mnt/roms/Downloads/Jogo A (World)"), Path("/home/u/Downloads/Jogo B")})
+            roms.real("/var/mnt/roms/Downloads/Jogo A (World)"), roms.real("/home/u/Downloads/Jogo B")})
 
     def test_torrents_pasta_inexistente(self):
         self.assertEqual(roms.torrents_ativos(self.tmp / "nao-existe"), set())
@@ -64,10 +64,43 @@ class TestListar(Base):
         self.assertFalse(itens[0]["protegido"])
 
 
+class TestSeguranca(Base):
+    def test_protegido_quando_origem_contem_torrent(self):
+        self.assertTrue(roms.protegido(Path("/dl"), {Path("/dl/Pack")}))
+
+    def test_protegido_com_ponto_ponto(self):
+        self.assertTrue(roms.protegido(Path("/dl/x/../Pack/g.iso"), {Path("/dl/Pack")}))
+
+    def test_plano_ponto_ponto_em_torrent_copia(self):
+        p = roms.planejar([{"origem": "/dl/x/../Pack/g.sfc", "sistema": "snes", "tipo": "base"}],
+                          ativos={Path("/dl/Pack")})
+        self.assertEqual(p[-1]["args"][0], "cp")
+
+    def test_plano_recusa_origem_fora_de_downloads(self):
+        with self.assertRaises(ValueError):
+            roms.planejar([{"origem": "/home/u/.ssh/id_rsa", "sistema": "snes", "tipo": "base"}])
+
+    def test_plano_recusa_jogo_com_barra(self):
+        with self.assertRaises(ValueError):
+            roms.planejar([{"origem": "/dl/a.nsp", "sistema": "switch", "tipo": "extra", "jogo": "../../tmp/x"}])
+
+    def test_plano_recusa_sistema_ponto_ponto(self):
+        with self.assertRaises(ValueError):
+            roms.planejar([{"origem": "/dl/a.sfc", "sistema": "snes/../..", "tipo": "base"}])
+
+    def test_descricao_tem_caminho_completo(self):
+        p = roms.planejar([{"origem": "/dl/Pasta A/j.sfc", "sistema": "snes", "tipo": "base"}])
+        self.assertIn("/dl/Pasta A/j.sfc", p[-1]["descricao"])
+
+    def test_args_com_separador_de_opcoes(self):
+        p = roms.planejar([{"origem": "/dl/-t.sfc", "sistema": "snes", "tipo": "base"}])
+        self.assertEqual(p[-1]["args"][:3], ["mv", "-n", "--"])
+
+
 class TestPlano(Base):
     def test_plano_7z_switch_base(self):
         p = roms.planejar([{"origem": "/dl/Jogo/Jogo (World).7z", "sistema": "switch", "tipo": "base"}])
-        self.assertEqual(p[-1]["args"], ["7z", "x", "-y", "-aos", f"-o{self.sw}", "/dl/Jogo/Jogo (World).7z"])
+        self.assertEqual(p[-1]["args"], ["7z", "x", "-y", "-aos", f"-o{self.sw}", "--", "/dl/Jogo/Jogo (World).7z"])
         self.assertFalse(any(x["apaga"] for x in p))
 
     def test_plano_extra_vai_para_extras(self):
@@ -75,7 +108,7 @@ class TestPlano(Base):
                             "sistema": "switch", "tipo": "extra"}])
         destino = self.ex / "Super Mario Odyssey"
         self.assertEqual(p[0]["args"], ["mkdir", "-p", str(destino)])
-        self.assertEqual(p[1]["args"], ["mv", "-n", "/dl/Super Mario Odyssey (World) (Rev 3)/upd (Update).nsp",
+        self.assertEqual(p[1]["args"], ["mv", "-n", "--", "/dl/Super Mario Odyssey (World) (Rev 3)/upd (Update).nsp",
                                          str(destino / "upd (Update).nsp")])
 
     def test_plano_extra_com_jogo_explicito(self):
@@ -84,7 +117,7 @@ class TestPlano(Base):
 
     def test_plano_solto_ativo_copia(self):
         p = roms.planejar([{"origem": "/dl/T/j.sfc", "sistema": "snes", "tipo": "base"}], ativos={Path("/dl/T")})
-        self.assertEqual(p[-1]["args"], ["cp", "-n", "/dl/T/j.sfc", str(self.roms / "snes" / "j.sfc")])
+        self.assertEqual(p[-1]["args"], ["cp", "-n", "--", "/dl/T/j.sfc", str(self.roms / "snes" / "j.sfc")])
 
     def test_plano_sistema_inexistente_recusa(self):
         with self.assertRaises(ValueError) as c:
@@ -92,7 +125,7 @@ class TestPlano(Base):
         self.assertIn("naoexiste", str(c.exception))
 
     def test_plano_com_nome_estranho(self):
-        o = "/x/Super Mario Galaxy [010099C022B96000][v0] + 2, (En,Ja) 'a'.7z"
+        o = "/dl/Super Mario Galaxy [010099C022B96000][v0] + 2, (En,Ja) 'a'.7z"
         p = roms.planejar([{"origem": o, "sistema": "switch", "tipo": "base"}])
         self.assertEqual(p[-1]["args"][-1], o)
         self.assertEqual(p[-1]["args"].count(o), 1)

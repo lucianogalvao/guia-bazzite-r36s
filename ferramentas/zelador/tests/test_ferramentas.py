@@ -24,7 +24,9 @@ class TestFerramentas(unittest.TestCase):
         self.props = Propostas(d / "propostas", Tarefas(d / "tarefas"))
         ex = ExecutorFalso({("journalctl",): Resultado(0, "linha1\nlinha2\n", "")})
         self.ex = ex
-        self.lista, self.chamar = ferramentas.criar_registro(ex, self.props, ativos=lambda: {self.dl / "Jogo A"})
+        self.ativos_extra = set()
+        self.lista, self.chamar = ferramentas.criar_registro(
+            ex, self.props, ativos=lambda: {self.dl / "Jogo A"} | self.ativos_extra)
 
     def test_registro_nomes(self):
         self.assertEqual({f["function"]["name"] for f in self.lista}, NOMES)
@@ -62,6 +64,24 @@ class TestFerramentas(unittest.TestCase):
         self.assertEqual(r["proposta"], p["id"])
         self.assertEqual(p["passos"][0]["args"], ["rm", "--", str(alvo)])
         self.assertTrue(p["passos"][0]["apaga"])
+
+    def test_propor_apagar_recusa_symlink_para_fora(self):
+        fora = self.dl.parent / "fora"
+        fora.mkdir()
+        (self.dl / "link").symlink_to(fora)
+        self.assertIn("erro", self.chamar("propor_apagar", {"caminhos": [str(self.dl / "link" / "a.sav")]}))
+        self.assertIn("erro", self.chamar("propor_apagar", {"caminhos": [str(self.dl / "link")]}))
+
+    def test_excecao_inesperada_vira_erro(self):
+        self.assertIn("erro", self.chamar("ler_log", {"servico": "sunshine", "linhas": float("inf")}))
+
+    def test_apagar_revalida_ao_aprovar(self):
+        alvo = self.dl / "Jogo C" / "c.7z"
+        r = self.chamar("propor_apagar", {"caminhos": [str(alvo)]})
+        self.ativos_extra.add(self.dl / "Jogo C")
+        res = self.props.aprovar(r["proposta"], confirmar_apagar=True)
+        self.assertFalse(res["ok"])
+        self.assertIn("semeando", res["mensagem"])
 
     def test_erro_de_valor_vira_mensagem(self):
         r = self.chamar("propor_organizacao", {"itens": [{"origem": "/x.sfc", "sistema": "nada", "tipo": "base"}]})

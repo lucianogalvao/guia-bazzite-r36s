@@ -27,7 +27,19 @@ async function api(metodo, caminho, corpo) {
 
 // ---------- PIN ----------
 function mostrarPin() { $("#tela-app").hidden = true; $("#tela-pin").hidden = false; $("#pin").focus(); }
-function mostrarApp() { $("#tela-pin").hidden = true; $("#tela-app").hidden = false; atualizarEstado(); vigiarTarefas(); }
+function mostrarApp() {
+  $("#tela-pin").hidden = true; $("#tela-app").hidden = false;
+  atualizarEstado(); vigiarTarefas(); carregarPropostas();
+}
+
+// Propostas criadas por um chat cuja resposta se perdeu (página fechada) reaparecem aqui.
+const propostasNaTela = new Set();
+async function carregarPropostas() {
+  try {
+    const { dados } = await api("GET", "/api/propostas");
+    for (const p of dados) if (!propostasNaTela.has(p.id)) $("#mensagens").append(cartaoProposta(p));
+  } catch { /* tenta de novo ao reabrir */ }
+}
 
 $("#form-pin").addEventListener("submit", async (ev) => {
   ev.preventDefault();
@@ -146,7 +158,7 @@ async function enviar(texto, forcar = false) {
     }
     historico.push({ role: "assistant", content: dados.texto });
     adicionarMsg("assistant", dados.texto);
-    for (const p of dados.propostas || []) $("#mensagens").append(cartaoProposta(p));
+    for (const p of dados.propostas || []) if (!propostasNaTela.has(p.id)) $("#mensagens").append(cartaoProposta(p));
   } catch (e) {
     esperando.remove();
     if (e.message !== "sem login") adicionarMsg("assistant", "Não consegui falar com o PC.");
@@ -154,6 +166,7 @@ async function enviar(texto, forcar = false) {
 }
 
 function cartaoProposta(p) {
+  propostasNaTela.add(p.id);
   const apaga = p.passos.some((x) => x.apaga);
   const lista = el("ul", {}, ...p.passos.map((x) => el("li", {}, x.descricao)));
   const botoes = el("div", { class: "botoes" });
@@ -200,3 +213,8 @@ $("#form-chat").addEventListener("submit", (ev) => {
 
 // ---------- Início ----------
 api("GET", "/api/status").then(mostrarApp).catch(() => {});
+
+// Ao voltar para o app (iPhone), atualiza tarefas e propostas.
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && !$("#tela-app").hidden) { vigiarTarefas(); carregarPropostas(); }
+});

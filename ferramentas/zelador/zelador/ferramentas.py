@@ -41,11 +41,6 @@ LISTA = [
 ]
 
 
-def _dentro(c: Path, raiz: Path) -> bool:
-    c, raiz = Path(os.path.normpath(c)), Path(os.path.normpath(raiz))
-    return c != raiz and raiz in c.parents
-
-
 def criar_registro(ex: Executor, propostas: Propostas,
                    ativos: Callable[[], set] = roms.torrents_ativos) -> tuple[list[dict], Callable[[str, dict], dict]]:
 
@@ -60,23 +55,30 @@ def criar_registro(ex: Executor, propostas: Propostas,
         itens = diagnostico.regras(diagnostico.coletar(ex))
         return {"itens": itens, "resumo": diagnostico.resumo(itens)}
 
-    def propor(titulo: str, passos: list[dict]) -> dict:
-        return {"proposta": propostas.criar(titulo, passos), "passos": [p["descricao"] for p in passos]}
+    def propor(titulo: str, refazer: str, entrada: dict) -> dict:
+        passos = refazedores[refazer](entrada)
+        id_ = propostas.criar(titulo, passos, refazer=refazer, entrada=entrada)
+        return {"proposta": id_, "passos": [p["descricao"] for p in passos]}
 
-    def propor_apagar(caminhos: list[str]) -> dict:
+    def plano_apagar(entrada: dict) -> list[dict]:
         prot = ativos()
         passos = []
-        for c in caminhos:
+        for c in entrada["caminhos"]:
             p = Path(os.path.normpath(c))
-            if not (_dentro(p, Path(config.DOWNLOADS)) or _dentro(p, Path(config.SWITCH_EXTRAS))):
-                raise ValueError(f"Só apago dentro de Downloads ou switch-extras: {c}")
+            if p.is_symlink() or not (roms.dentro(p, config.DOWNLOADS) or roms.dentro(p, config.SWITCH_EXTRAS)):
+                raise ValueError(f"Só apago dentro de Downloads ou switch-extras (sem atalhos): {c}")
             if roms.protegido(p, prot):
                 raise ValueError(f"Esse arquivo ainda está semeando no qBittorrent: {c}")
-            passos.append({"descricao": f"Apagar {p.name}", "args": ["rm", "--", str(p)], "apaga": True})
-        return propor("Apagar arquivos", passos)
+            passos.append({"descricao": f"Apagar {p}", "args": ["rm", "--", str(p)], "apaga": True})
+        return passos
 
-    def r36s_copia(arquivos: list[str], sistema: str) -> dict:
-        return propor(f"Copiar para o R36S ({sistema})", r36s.planejar_copia(arquivos, sistema, r36s.detectar(ex)))
+    refazedores = {
+        "organizar": lambda e: roms.planejar(e["itens"], ativos()),
+        "apagar": plano_apagar,
+        "r36s_copia": lambda e: r36s.planejar_copia(e["arquivos"], e["sistema"], r36s.detectar(ex)),
+        "r36s_ejetar": lambda e: r36s.passos_ejetar(r36s.detectar(ex)),
+    }
+    propostas.refazedores.update(refazedores)
 
     funcs: dict[str, Callable[..., dict]] = {
         "status": lambda: acoes.status(ex),
@@ -84,11 +86,12 @@ def criar_registro(ex: Executor, propostas: Propostas,
         "ler_log": ler_log,
         "reiniciar_sunshine": lambda: acoes.reiniciar_sunshine(ex),
         "listar_downloads": lambda: {"itens": roms.listar_downloads(ex, ativos=ativos())},
-        "propor_organizacao": lambda itens: propor("Organizar Downloads", roms.planejar(itens, ativos())),
-        "propor_apagar": propor_apagar,
+        "propor_organizacao": lambda itens: propor("Organizar Downloads", "organizar", {"itens": itens}),
+        "propor_apagar": lambda caminhos: propor("Apagar arquivos", "apagar", {"caminhos": caminhos}),
         "r36s_info": lambda: r36s.detectar(ex),
-        "propor_copia_r36s": r36s_copia,
-        "propor_ejetar_r36s": lambda: propor("Ejetar o cartão do R36S", r36s.passos_ejetar(r36s.detectar(ex))),
+        "propor_copia_r36s": lambda arquivos, sistema: propor(
+            f"Copiar para o R36S ({sistema})", "r36s_copia", {"arquivos": arquivos, "sistema": sistema}),
+        "propor_ejetar_r36s": lambda: propor("Ejetar o cartão do R36S", "r36s_ejetar", {}),
     }
 
     def chamar(nome: str, args: dict) -> dict:
@@ -96,8 +99,8 @@ def criar_registro(ex: Executor, propostas: Propostas,
         if f is None:
             return {"erro": "Ferramenta não existe."}
         try:
-            return f(**(args or {}))
-        except (ValueError, TypeError, KeyError) as e:
-            return {"erro": str(e)}
+            return f(**(args if isinstance(args, dict) else {}))
+        except Exception as e:  # o modelo manda argumentos imprevisíveis; nunca derrubar a requisição
+            return {"erro": str(e) or type(e).__name__}
 
     return LISTA, chamar

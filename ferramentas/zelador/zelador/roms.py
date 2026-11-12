@@ -1,6 +1,7 @@
 """ROMs: o que chegou em Downloads, o que ainda semeia e o plano para organizar."""
 from __future__ import annotations
 
+import os
 import re
 from pathlib import Path
 
@@ -45,13 +46,34 @@ def torrents_ativos(dir_backup: Path | None = None) -> set[Path]:
         nome = d.get(b"name") or d.get(b"qBt-name")
         base = d.get(b"save_path") or d.get(b"qBt-savePath")
         if nome and base:
-            ativos.add(Path(base.decode(errors="replace")) / nome.decode(errors="replace"))
+            ativos.add(real(Path(base.decode(errors="replace")) / nome.decode(errors="replace")))
     return ativos
 
 
+def real(p) -> Path:
+    """Caminho absoluto sem '..' e sem links (para comparar com segurança)."""
+    return Path(os.path.realpath(p))
+
+
+def dentro(caminho, raiz) -> bool:
+    c, r = real(caminho), real(raiz)
+    return c != r and r in c.parents
+
+
 def protegido(caminho: Path, ativos: set[Path]) -> bool:
-    caminho = Path(caminho)
-    return any(caminho == a or a in caminho.parents for a in ativos)
+    """True se o caminho é um torrent ativo, está dentro de um, ou CONTÉM um (mover a pasta levaria junto)."""
+    c = real(caminho)
+    for a in ativos:
+        a = real(a)
+        if c == a or a in c.parents or c in a.parents:
+            return True
+    return False
+
+
+def _componente(nome: str, campo: str) -> str:
+    if not nome or "/" in nome or nome in (".", "..") or nome.startswith("-"):
+        raise ValueError(f"Nome inválido em '{campo}': {nome!r}")
+    return nome
 
 
 def listar_downloads(ex: Executor, raiz: Path | None = None, ativos: set[Path] | None = None) -> list[dict]:
@@ -82,10 +104,14 @@ def planejar(itens: list[dict], ativos: set[Path] | None = None) -> list[dict]:
     ativos = ativos or set()
     passos = []
     for it in itens:
-        origem = Path(it["origem"])
-        sistema, tipo = it["sistema"], it.get("tipo", "base")
+        origem = Path(os.path.normpath(it["origem"]))
+        if not dentro(origem, config.DOWNLOADS):
+            raise ValueError(f"Só organizo arquivos de {config.DOWNLOADS}: {it['origem']}")
+        sistema = _componente(it["sistema"], "sistema")
+        tipo = it.get("tipo", "base")
         if sistema == "switch" and tipo == "extra":
-            destino = Path(config.SWITCH_EXTRAS) / (it.get("jogo") or _titulo(origem.parent.name))
+            jogo = _componente(it.get("jogo") or _titulo(origem.parent.name), "jogo")
+            destino = Path(config.SWITCH_EXTRAS) / jogo
             passos.append({"descricao": f"Criar pasta {destino}", "args": ["mkdir", "-p", str(destino)],
                            "apaga": False})
         elif sistema == "switch":
@@ -95,12 +121,12 @@ def planejar(itens: list[dict], ativos: set[Path] | None = None) -> list[dict]:
             if not destino.is_dir():
                 raise ValueError(f"Pasta do sistema '{sistema}' não existe em {config.ROMS}.")
         if origem.suffix.lower() in COMPACTADOS:
-            passos.append({"descricao": f"Extrair {origem.name} para {destino}",
-                           "args": ["7z", "x", "-y", "-aos", f"-o{destino}", str(origem)], "apaga": False})
+            passos.append({"descricao": f"Extrair {origem} para {destino}",
+                           "args": ["7z", "x", "-y", "-aos", f"-o{destino}", "--", str(origem)], "apaga": False})
         elif protegido(origem, ativos):
-            passos.append({"descricao": f"Copiar {origem.name} para {destino} (torrent ainda semeando)",
-                           "args": ["cp", "-n", str(origem), str(destino / origem.name)], "apaga": False})
+            passos.append({"descricao": f"Copiar {origem} para {destino} (torrent ainda semeando)",
+                           "args": ["cp", "-n", "--", str(origem), str(destino / origem.name)], "apaga": False})
         else:
-            passos.append({"descricao": f"Mover {origem.name} para {destino}",
-                           "args": ["mv", "-n", str(origem), str(destino / origem.name)], "apaga": False})
+            passos.append({"descricao": f"Mover {origem} para {destino}",
+                           "args": ["mv", "-n", "--", str(origem), str(destino / origem.name)], "apaga": False})
     return passos
