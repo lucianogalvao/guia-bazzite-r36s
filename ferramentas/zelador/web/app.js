@@ -157,7 +157,7 @@ $("#btn-fechar").addEventListener("click", async (ev) => {
 $("#btn-desligar").addEventListener("click", async () => {
   let jogo = null;
   try { jogo = (await api("GET", "/api/status")).dados.jogo; } catch (e) { if (e.message === "sem login") return; }
-  const aviso = jogo ? `O jogo ${jogo} está aberto e o que não foi salvo vai se perder.` : "Ninguém vai conseguir ligar de volta pelo celular.";
+  const pergunta = "Posso desligar o PC da sala?" + (jogo ? ` O ${jogo} ainda está aberto, salve antes se precisar.` : "");
   const botoes = el("div", { class: "botoes" },
     el("button", { class: "botao botao-perigo", onclick: async (e) => {
       e.currentTarget.disabled = true;
@@ -168,7 +168,7 @@ $("#btn-desligar").addEventListener("click", async () => {
       } catch (e2) { if (e2.message !== "sem login") resultado("falha", SEM_CONEXAO); }
     } }, "Desligar agora"),
     el("button", { class: "botao", onclick: () => { $("#resultado").hidden = true; } }, "Cancelar"));
-  resultado("atencao", el("div", {}, "Desligar o PC da sala? " + aviso), botoes);
+  resultado("atencao", el("div", {}, pergunta), botoes);
   $("#resultado").scrollIntoView({ block: "center", behavior: "smooth" });
 });
 
