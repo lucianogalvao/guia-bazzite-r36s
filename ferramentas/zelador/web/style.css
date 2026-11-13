@@ -72,6 +72,9 @@ button:disabled { opacity: .55; cursor: default; }
 .anel-ok { --cor: var(--ok); }
 .anel-atencao { --cor: var(--atencao); animation: pulsar 2.4s ease-in-out infinite; }
 .anel-perigo { --cor: var(--perigo); animation: pulsar 1.6s ease-in-out infinite; }
+.anel-desligado { --cor: var(--linha); box-shadow: 0 0 0 4px var(--cor); background: none; }
+.anel-desligado span { background: none; box-shadow: inset 0 0 0 2px var(--sutil); }
+.pc-desligado .principais, .pc-desligado .conversa, .pc-desligado .mais { opacity: .45; }
 @keyframes pulsar {
   50% { box-shadow: 0 0 0 4px var(--cor), 0 0 44px 8px color-mix(in srgb, var(--cor) 70%, transparent); }
 }

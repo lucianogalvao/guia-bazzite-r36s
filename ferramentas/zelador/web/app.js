@@ -53,6 +53,7 @@ $("#form-pin").addEventListener("submit", async (ev) => {
 function gb(v) { return v == null ? "?" : `${Math.round(v)} GB livres`; }
 
 function pintarPainel(s) {
+  sairDoModoDesligado();
   const discosOk = Object.values(s.discos || {}).every(Boolean);
   const sunshine = s.sunshine === "active";
   let classe = "anel-ok", frase = "Tudo pronto para jogar na TV";
@@ -82,12 +83,41 @@ async function atualizarEstado() {
     const { dados } = await api("GET", "/api/status");
     pintarPainel(dados);
   } catch (e) {
-    if (e.message !== "sem login") {
-      $("#anel").className = "anel anel-perigo";
-      $("#frase").textContent = "Sem contato com o PC";
-      $("#chips").replaceChildren();
-    }
+    if (e.message !== "sem login") entrarNoModoDesligado("O PC está desligado ou fora da rede");
   }
+}
+
+// ---------- PC desligado ----------
+// A página é servida pelo próprio PC: com ele desligado, só a aba já aberta sobrevive.
+// Ela apaga o anel, trava os botões e confere de tempos em tempos até o PC voltar.
+let desligado = false, vigiaPC = null, travados = [];
+function entrarNoModoDesligado(frase, primeiraConferenciaEm = 20000) {
+  desligado = true;
+  document.body.classList.add("pc-desligado");
+  $("#anel").className = "anel anel-desligado";
+  $("#frase").textContent = frase;
+  $("#chips").replaceChildren(el("li", {}, "Quando ele ligar, eu acendo aqui sozinho"));
+  if (!travados.length) {  // só trava o que estava livre, para devolver igual depois
+    travados = [...document.querySelectorAll("#tela-app button, #texto")].filter((b) => !b.disabled);
+    travados.forEach((b) => { b.disabled = true; });
+  }
+  clearTimeout(vigiaPC);
+  vigiaPC = setTimeout(conferirPC, primeiraConferenciaEm);
+}
+async function conferirPC() {
+  if (!desligado) return;
+  try { pintarPainel((await api("GET", "/api/status")).dados); carregarRegistro(); }
+  catch (e) { if (e.message !== "sem login") vigiaPC = setTimeout(conferirPC, 20000); }
+}
+function sairDoModoDesligado() {
+  if (!desligado) return;
+  desligado = false;
+  clearTimeout(vigiaPC);
+  document.body.classList.remove("pc-desligado");
+  travados.forEach((b) => { b.disabled = false; });
+  travados = [];
+  $("#resultado").hidden = true;
+  primeiraPintura = true;  // anel "acende" ao voltar
 }
 
 // ---------- Resultado dos botões ----------
@@ -163,8 +193,12 @@ $("#btn-desligar").addEventListener("click", async () => {
       e.currentTarget.disabled = true;
       try {
         const { dados } = await api("POST", "/api/desligar", { confirmar: true });
-        resultado(dados.ok ? "atencao" : "falha", dados.mensagem || dados.erro);
-        carregarRegistro();
+        if (dados.ok) {
+          $("#resultado").hidden = true;
+          // Primeira conferência só depois de 1 min, para não pegar o PC ainda desligando.
+          entrarNoModoDesligado("Desliguei o PC. Até a próxima!", 60000);
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        } else resultado("falha", dados.mensagem || dados.erro);
       } catch (e2) { if (e2.message !== "sem login") resultado("falha", SEM_CONEXAO); }
     } }, "Desligar agora"),
     el("button", { class: "botao", onclick: () => { $("#resultado").hidden = true; } }, "Cancelar"));
@@ -308,6 +342,7 @@ $("#form-chat").addEventListener("submit", (ev) => {
 
 // Ao voltar para o app (iPhone), atualiza o painel, as tarefas e as propostas.
 document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && desligado) { clearTimeout(vigiaPC); conferirPC(); return; }
   if (!document.hidden && !$("#tela-app").hidden) { atualizarEstado(); vigiarTarefas(); carregarPropostas(); carregarRegistro(); }
 });
 
