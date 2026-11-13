@@ -1,8 +1,11 @@
 """Servidor HTTP: página (web/) e API. Tudo em /api exige o cookie do PIN, menos /api/login."""
 from __future__ import annotations
 
+import ipaddress
 import json
 import mimetypes
+import os
+import socket
 import threading
 from functools import partial
 from http.cookies import SimpleCookie
@@ -24,6 +27,7 @@ mimetypes.add_type("application/manifest+json", ".webmanifest")
 class App:
     def __init__(self, ex: Executor, estado: Path, web: Path, chat=None, esperar_sunshine: float = 3):
         self.ex, self.web = ex, Path(web).resolve()
+        self.nomes = _nomes_do_pc()
         self.auth = Auth(estado)
         self.registro = Registro(Path(estado) / "registro")
         self.tarefas = Tarefas(Path(estado) / "tarefas", ao_terminar=self._tarefa_terminou)
@@ -46,6 +50,28 @@ class App:
 
 
 NOMES_ACAO = {"reiniciar_sunshine": "Reiniciar o streaming", "backup_agora": "Backup dos saves", "status": "Status"}
+
+
+def _nomes_do_pc() -> set[str]:
+    nome = socket.gethostname().lower().removesuffix(".local")
+    extras = os.environ.get("ZELADOR_HOSTS", "")
+    return {"localhost", nome, f"{nome}.local"} | {h.strip().lower() for h in extras.split(",") if h.strip()}
+
+
+def host_permitido(host: str | None, nomes: set[str]) -> bool:
+    """Contra DNS rebinding: só aceita IP direto ou o nome do próprio PC no cabeçalho Host."""
+    if not host:
+        return False
+    host = host.strip().lower()
+    if host.startswith("["):  # [IPv6]:porta
+        nome = host[1:host.find("]")] if "]" in host else ""
+    else:
+        nome = host.rsplit(":", 1)[0] if host.count(":") == 1 else host
+    try:
+        ipaddress.ip_address(nome)
+        return True
+    except ValueError:
+        return nome.rstrip(".") in nomes
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -83,6 +109,12 @@ class Handler(BaseHTTPRequestHandler):
         c = SimpleCookie(self.headers.get("Cookie") or "")
         return self.app.auth.valida(c["zelador"].value if "zelador" in c else None)
 
+    def _host_ok(self) -> bool:
+        if host_permitido(self.headers.get("Host"), self.app.nomes):
+            return True
+        self.send_error(403, "Host não permitido")
+        return False
+
     def _estatico(self, caminho: str) -> None:
         rel = unquote(caminho).lstrip("/") or "index.html"
         alvo = (self.app.web / rel).resolve()
@@ -97,6 +129,8 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(corpo)
 
     def do_GET(self):
+        if not self._host_ok():
+            return
         p = urlparse(self.path).path
         if not p.startswith("/api/"):
             return self._estatico(p)
@@ -126,14 +160,17 @@ class Handler(BaseHTTPRequestHandler):
         return self._json(404, {"erro": "Rota não existe."})
 
     def do_POST(self):
+        if not self._host_ok():
+            return
         p = urlparse(self.path).path
         app, corpo = self.app, self._corpo()
         if p == "/api/login":
             try:
-                ok = app.auth.conferir(str(corpo.get("pin", "")))
-            except Bloqueado:
+                ok = app.auth.conferir(str(corpo.get("pin", "")), self.client_address[0])
+            except Bloqueado as b:
                 self._anotar("login", "Bloqueado: muitas tentativas")
-                return self._json(429, {"erro": "Muitas tentativas. Espere um minuto."})
+                minutos = max(1, -(-b.segundos // 60))
+                return self._json(429, {"erro": f"Muitas tentativas. Tente de novo em {minutos} min."})
             if not ok:
                 self._anotar("login", "PIN errado")
                 return self._json(401, {"erro": "PIN errado."})

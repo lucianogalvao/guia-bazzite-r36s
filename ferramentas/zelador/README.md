@@ -6,7 +6,7 @@ Só biblioteca padrão do Python (≥ 3.10). Sem `pip`.
 
 ```bash
 python3 -m unittest discover -s tests -v          # testes (rodam em qualquer máquina)
-ZELADOR_FALSO=1 python3 -m zelador servir         # demonstração, PIN 0000, porta 8787
+ZELADOR_FALSO=1 python3 -m zelador servir         # demonstração, PIN 000000, porta 8787
 python3 -m zelador definir-pin                    # trocar o PIN
 ```
 

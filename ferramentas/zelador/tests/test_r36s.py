@@ -3,8 +3,9 @@ import re
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
-from zelador import r36s
+from zelador import config, r36s
 from zelador.executor import ExecutorFalso, Resultado
 
 
@@ -28,9 +29,53 @@ def lsblk(easyroms=None, rootfs=None, boot=None, usb=True):
 
 class TestR36S(unittest.TestCase):
     def setUp(self):
-        self.mnt = Path(tempfile.mkdtemp()) / "EASYROMS"
+        raiz = Path(tempfile.mkdtemp())
+        self.mnt = raiz / "EASYROMS"
         (self.mnt / "gba").mkdir(parents=True)
         (self.mnt / "bios").mkdir()
+        self.dl = raiz / "Downloads"
+        self.dl.mkdir()
+        self.roms = raiz / "Emulation" / "roms"
+        (raiz / "Emulation" / "bios").mkdir(parents=True)
+        self.roms.mkdir()
+        for nome in ("j (USA).gba", "j (USA).srm", "j.n64"):
+            (self.dl / nome).write_text("x")
+        (raiz / "Emulation" / "bios" / "scph1001.bin").write_text("x")
+        self.segredo = raiz / "rclone.conf"
+        self.segredo.write_text("token")
+        p = mock.patch.multiple(config, DOWNLOADS=self.dl, ROMS=self.roms)
+        p.start()
+        self.addCleanup(p.stop)
+        self.info = r36s.detectar(lsblk(easyroms=str(self.mnt)))
+
+    def assertRecusa(self, arquivos, sistema, trecho):
+        with self.assertRaises(ValueError) as c:
+            r36s.planejar_copia([str(a) for a in arquivos], sistema, self.info)
+        self.assertIn(trecho, str(c.exception))
+
+    def test_recusa_sistema_com_ponto_ponto(self):
+        (self.mnt.parent / "fora").mkdir()
+        self.assertRecusa([self.dl / "j (USA).gba"], "../fora", "Nome inválido")
+        self.assertRecusa([self.dl / "j (USA).gba"], "gba/../..", "Nome inválido")
+
+    def test_recusa_pasta_do_cartao_que_e_link_para_fora(self):
+        (self.mnt.parent / "fora").mkdir()
+        (self.mnt / "psx").symlink_to(self.mnt.parent / "fora")
+        self.assertRecusa([self.dl / "j (USA).gba"], "psx", "fora do cartão")
+
+    def test_recusa_origem_fora_de_downloads_e_emulation(self):
+        self.assertRecusa([self.segredo], "gba", "Só copio")
+
+    def test_recusa_origem_link(self):
+        (self.dl / "isca.gba").symlink_to(self.segredo)
+        self.assertRecusa([self.dl / "isca.gba"], "gba", "Só copio")
+
+    def test_recusa_origem_com_ponto_ponto(self):
+        self.assertRecusa([f"{self.dl}/../rclone.conf"], "gba", "Só copio")
+
+    def test_recusa_origem_inexistente_ou_pasta(self):
+        self.assertRecusa([self.dl / "nada.gba"], "gba", "Só copio")
+        self.assertRecusa([self.dl], "gba", "Só copio")
 
     def test_detecta_cartao(self):
         info = r36s.detectar(lsblk(easyroms=str(self.mnt), boot="/run/media/u/BOOT"))
@@ -53,20 +98,19 @@ class TestR36S(unittest.TestCase):
                          "A partição de sistema (ROOTFS) do cartão está montada. Desmonte antes: isso pode estragar o R36S.")
 
     def test_copia_jogo_e_save(self):
-        info = r36s.detectar(lsblk(easyroms=str(self.mnt)))
-        p = r36s.planejar_copia(["/x/j (USA).gba", "/x/j (USA).srm"], "gba", info)
-        self.assertEqual([x["args"] for x in p], [["cp", "-n", "--", "/x/j (USA).gba", f"{self.mnt}/gba/"],
-                                                   ["cp", "-n", "--", "/x/j (USA).srm", f"{self.mnt}/gba/"]])
+        a, b = str(self.dl / "j (USA).gba"), str(self.dl / "j (USA).srm")
+        p = r36s.planejar_copia([a, b], "gba", self.info)
+        self.assertEqual([x["args"] for x in p], [["cp", "-n", "--", a, f"{self.mnt}/gba/"],
+                                                   ["cp", "-n", "--", b, f"{self.mnt}/gba/"]])
 
     def test_copia_bios(self):
-        info = r36s.detectar(lsblk(easyroms=str(self.mnt)))
-        self.assertEqual(r36s.planejar_copia(["/x/scph1001.bin"], "bios", info)[0]["args"],
-                         ["cp", "-n", "--", "/x/scph1001.bin", f"{self.mnt}/bios/"])
+        bios = str(self.roms.parent / "bios" / "scph1001.bin")
+        self.assertEqual(r36s.planejar_copia([bios], "bios", self.info)[0]["args"],
+                         ["cp", "-n", "--", bios, f"{self.mnt}/bios/"])
 
     def test_pasta_inexistente(self):
-        info = r36s.detectar(lsblk(easyroms=str(self.mnt)))
         with self.assertRaises(ValueError) as c:
-            r36s.planejar_copia(["/x/j.n64"], "n64", info)
+            r36s.planejar_copia([str(self.dl / "j.n64")], "n64", self.info)
         self.assertEqual(str(c.exception), "Pasta n64 não existe no cartão.")
 
     def test_ejetar(self):

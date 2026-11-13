@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 import threading
 import time
 from pathlib import Path
@@ -15,6 +16,7 @@ class Registro:
     def __init__(self, dir: Path, dias: int = DIAS, agora: Callable[[], float] = time.time):
         self.dir = Path(dir)
         self.dir.mkdir(parents=True, exist_ok=True)
+        os.chmod(self.dir, 0o700)  # registro e propostas guardam conversas
         self.dias, self.agora = dias, agora
         self._lock = threading.Lock()
 

@@ -37,7 +37,7 @@ systemctl --user daemon-reload && systemctl --user start ollama
 podman exec ollama ollama pull qwen3:8b
 ```
 
-3. **Serviço do Zelador** ([config/bazzite/zelador.service](../../config/bazzite/zelador.service)) e o PIN (4 a 6 números):
+3. **Serviço do Zelador** ([config/bazzite/zelador.service](../../config/bazzite/zelador.service)) e o PIN (6 números):
 
 ```bash
 cp config/bazzite/zelador.service ~/.config/systemd/user/
@@ -49,7 +49,7 @@ cd ~/.local/share/zelador && python3 -m zelador definir-pin
 
 **Atualizar:** copie de novo a pasta `ferramentas/zelador` e rode `systemctl --user restart zelador`.
 
-**Testar fora do PC** (no Mac, por exemplo): `ZELADOR_FALSO=1 python3 -m zelador servir` sobe a página com dados de demonstração e PIN `0000`.
+**Testar fora do PC** (no Mac, por exemplo): `ZELADOR_FALSO=1 python3 -m zelador servir` sobe a página com dados de demonstração e PIN `000000`.
 
 ## Como usar
 
@@ -86,6 +86,7 @@ nvidia-smi | sed -n '/Processes/,$p'                   # ollama aparece só dura
 | `ollama ps` mostra parte na CPU (ex.: 14%/86%) | Pouca memória de vídeo livre (jogo/emulador ou Desktop abertos) | Normal: só fica um pouco mais lento |
 | "O modelo está indisponível agora" | Ollama parado ou ainda carregando | `systemctl --user status ollama`. Os botões continuam funcionando |
 | Página não abre no iPhone | Fora do Wi-Fi de casa, ou PC desligado | Conecte no Wi-Fi; ligue o PC pela Alexa/WoL |
-| "Muitas tentativas" | 5 PINs errados seguidos | Espere 1 minuto |
+| "Muitas tentativas" | 5 PINs errados seguidos naquele aparelho | Espere o tempo mostrado: começa em 1 min e dobra a cada novo erro (até 1 h). Os outros aparelhos continuam entrando |
+| Página mostra "403 Host não permitido" | Abriu por um nome que não é o IP nem o nome do PC | Use `http://IP-DO-PC:8787`, ou acrescente o nome em `ZELADOR_HOSTS` (separado por vírgula) no serviço |
 | Esqueceu o PIN | — | `python3 -m zelador definir-pin` no PC (desconecta todos os aparelhos) |
 | R36S: "ROOTFS do cartão está montada" | O PC montou a partição de sistema | Desmonte e reveja a regra udev do [r36s/01](../r36s/01-antes-de-tudo.md) |

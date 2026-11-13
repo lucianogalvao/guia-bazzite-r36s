@@ -7,7 +7,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from . import config, roms
 from .executor import Executor
+from .roms import real
 
 
 def _particoes(dev: dict):
@@ -50,10 +52,25 @@ def _validar(info: dict) -> str:
     return info["easyroms"]
 
 
+def _origem(a: str) -> str:
+    """Só arquivos comuns (sem link) dentro de Downloads ou da pasta Emulation (ROMs, BIOS, saves)."""
+    p = Path(a)
+    raizes = (config.DOWNLOADS, Path(config.ROMS).parent)
+    if not p.is_absolute() or ".." in p.parts or p.is_symlink() or not p.is_file() \
+            or not any(roms.dentro(p, r) for r in raizes):
+        raise ValueError(f"Só copio arquivos de {config.DOWNLOADS} ou {Path(config.ROMS).parent}: {a}")
+    return a
+
+
 def planejar_copia(arquivos: list[str], sistema: str, info: dict) -> list[dict]:
     base = _validar(info)
-    if not (Path(base) / sistema).is_dir():
+    sistema = roms._componente(sistema, "sistema")
+    pasta = Path(base) / sistema
+    if not pasta.is_dir():
         raise ValueError(f"Pasta {sistema} não existe no cartão.")
+    if real(pasta).parent != real(base):
+        raise ValueError(f"A pasta {sistema} aponta para fora do cartão.")
+    arquivos = [_origem(a) for a in arquivos]
     destino = f"{base}/{sistema}/"
     return [{"descricao": f"Copiar {a} para o R36S ({sistema})", "args": ["cp", "-n", "--", a, destino],
              "apaga": False} for a in arquivos]

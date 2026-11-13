@@ -39,7 +39,7 @@ def _executor_demo() -> Executor:
 def main(argv: list[str]) -> int:
     cmd = argv[1] if len(argv) > 1 else "servir"
     if cmd == "definir-pin":
-        pin = _ler("Novo PIN (4 a 6 números): ")
+        pin = _ler("Novo PIN (6 números): ")
         if pin != _ler("Repita o PIN: "):
             print("Os PINs não conferem.", file=sys.stderr)
             return 1
@@ -55,9 +55,9 @@ def main(argv: list[str]) -> int:
         demo = os.environ.get("ZELADOR_FALSO") == "1"
         ex = _executor_demo() if demo else Executor()
         if demo:
-            Auth(config.ESTADO).definir_pin("0000")
+            Auth(config.ESTADO).definir_pin("000000")
         srv = criar_servidor(("0.0.0.0", config.PORTA), ex, config.ESTADO, WEB)
-        print(f"Zelador em http://0.0.0.0:{config.PORTA}" + (" (demonstração, PIN 0000)" if demo else ""))
+        print(f"Zelador em http://0.0.0.0:{config.PORTA}" + (" (demonstração, PIN 000000)" if demo else ""))
         try:
             srv.serve_forever()
         except KeyboardInterrupt:

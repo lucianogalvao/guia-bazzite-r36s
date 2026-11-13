@@ -18,12 +18,12 @@ class TestMain(unittest.TestCase):
         self.estado = tempfile.mkdtemp()
 
     def test_definir_pin_pela_entrada(self):
-        r = self.rodar("definir-pin", entrada="4321\n4321\n")
+        r = self.rodar("definir-pin", entrada="654321\n654321\n")
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertTrue((Path(self.estado) / "pin").exists())
 
     def test_definir_pin_diferentes(self):
-        r = self.rodar("definir-pin", entrada="4321\n1111\n")
+        r = self.rodar("definir-pin", entrada="654321\n111111\n")
         self.assertNotEqual(r.returncode, 0)
         self.assertIn("não conferem", r.stderr)
 

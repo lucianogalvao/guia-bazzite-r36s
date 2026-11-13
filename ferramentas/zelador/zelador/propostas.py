@@ -5,6 +5,7 @@ Ao aprovar, a proposta é refeita com a situação atual (cartão, torrents). Se
 from __future__ import annotations
 
 import json
+import os
 import secrets
 import threading
 import time
@@ -22,6 +23,7 @@ class Propostas:
                  refazedores: dict[str, Callable[[dict], list[dict]]] | None = None, registro=None):
         self.dir = Path(dir)
         self.dir.mkdir(parents=True, exist_ok=True)
+        os.chmod(self.dir, 0o700)  # registro e propostas guardam conversas
         self.tarefas = tarefas
         self.refazedores = dict(refazedores or {})
         self.registro = registro

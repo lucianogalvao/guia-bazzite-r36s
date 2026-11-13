@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 import secrets
 import subprocess
 import threading
@@ -14,6 +15,7 @@ class Tarefas:
         self.dir = Path(dir_logs)
         self.ao_terminar = ao_terminar
         self.dir.mkdir(parents=True, exist_ok=True)
+        os.chmod(self.dir, 0o700)  # registro e propostas guardam conversas
         self._vivas: set[str] = set()
         self._lock = threading.Lock()
 

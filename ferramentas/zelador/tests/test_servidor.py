@@ -1,4 +1,5 @@
 import json
+import socket
 import tempfile
 import threading
 import time
@@ -29,7 +30,7 @@ class TestServidor(unittest.TestCase):
             ("systemctl", "--user", "is-active"): Resultado(0, "active\n", ""),
             ("nvidia-smi",): Resultado(0, "", ""),
         })
-        Auth(self.dir / "estado").definir_pin("1234")
+        Auth(self.dir / "estado").definir_pin("123456")
         self.srv = servidor.criar_servidor(("127.0.0.1", 0), self.ex, self.dir / "estado", web,
                                            chat=ChatFalso(), esperar_sunshine=0)
         threading.Thread(target=self.srv.serve_forever, daemon=True).start()
@@ -38,9 +39,11 @@ class TestServidor(unittest.TestCase):
         self.base = f"http://127.0.0.1:{self.srv.server_address[1]}"
         self.cookie = None
 
-    def req(self, metodo, caminho, corpo=None):
+    def req(self, metodo, caminho, corpo=None, host=None):
         r = urllib.request.Request(self.base + caminho, method=metodo,
                                    data=None if corpo is None else json.dumps(corpo).encode())
+        if host:
+            r.add_header("Host", host)
         if self.cookie:
             r.add_header("Cookie", self.cookie)
         try:
@@ -52,7 +55,7 @@ class TestServidor(unittest.TestCase):
         except HTTPError as e:
             return e.code, e.read()
 
-    def login(self, pin="1234"):
+    def login(self, pin="123456"):
         return self.req("POST", "/api/login", {"pin": pin})
 
     def test_pagina_sem_login(self):
@@ -65,8 +68,8 @@ class TestServidor(unittest.TestCase):
 
     def test_login_errado_401_e_bloqueio(self):
         for _ in range(5):
-            self.assertEqual(self.login("0000")[0], 401)
-        st, corpo = self.login("1234")
+            self.assertEqual(self.login("000000")[0], 401)
+        st, corpo = self.login("123456")
         self.assertEqual(st, 429)
         self.assertIn("Muitas tentativas", json.loads(corpo)["erro"])
 
@@ -76,6 +79,24 @@ class TestServidor(unittest.TestCase):
         self.assertEqual(st, 200)
         self.assertEqual(json.loads(corpo)["mensagem"], "Sunshine reiniciado e rodando.")
         self.assertEqual(self.req("POST", "/api/acao/apagar_tudo")[0], 404)
+
+    def test_recusa_host_de_outro_dominio(self):
+        porta = self.srv.server_address[1]
+        for host in (f"ataque.example:{porta}", "ataque.example", f"127.0.0.1.nip.io:{porta}"):
+            self.assertEqual(self.req("POST", "/api/login", {"pin": "123456"}, host=host)[0], 403, host)
+            self.assertEqual(self.req("GET", "/", host=host)[0], 403, host)
+        self.assertIsNone(self.cookie)
+
+    def test_aceita_ip_e_nome_do_pc(self):
+        porta = self.srv.server_address[1]
+        for host in (f"192.168.0.10:{porta}", "192.168.0.10", f"[::1]:{porta}", f"localhost:{porta}",
+                     f"{socket.gethostname()}:{porta}", f"{socket.gethostname()}.local:{porta}"):
+            self.assertEqual(self.req("GET", "/", host=host)[0], 200, host)
+
+    def test_pastas_de_estado_so_do_dono(self):
+        estado = self.dir / "estado"
+        for d in (estado, estado / "registro", estado / "propostas", estado / "tarefas"):
+            self.assertEqual(d.stat().st_mode & 0o777, 0o700, d)
 
     def test_web_bloqueia_ponto_ponto(self):
         self.assertEqual(self.req("GET", "/../segredo.txt")[0], 404)
@@ -111,7 +132,7 @@ class TestServidor(unittest.TestCase):
         self.assertEqual(self.req("GET", "/api/registro")[0], 401)
 
     def test_registro_de_login_errado_e_acao(self):
-        self.login("9999")
+        self.login("999999")
         self.login()
         self.req("POST", "/api/acao/reiniciar_sunshine")
         itens = self.registro()

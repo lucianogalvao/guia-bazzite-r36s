@@ -10,21 +10,26 @@ import threading
 import time
 from pathlib import Path
 
-MAX_ERROS = 5
-BLOQUEIO_S = 60
+LIVRES = 5           # erros seguidos antes do primeiro bloqueio
+BLOQUEIO_S = 60      # primeiro bloqueio; dobra a cada erro seguinte
+BLOQUEIO_MAX_S = 3600
 
 
 class Bloqueado(Exception):
-    pass
+    def __init__(self, segundos: int):
+        super().__init__(segundos)
+        self.segundos = segundos
 
 
 class Auth:
-    def __init__(self, estado: Path):
+    def __init__(self, estado: Path, relogio=time.time):
         self.dir = Path(estado)
         self.dir.mkdir(parents=True, exist_ok=True)
+        os.chmod(self.dir, 0o700)  # registro e propostas guardam conversas
         self.arq_pin = self.dir / "pin"
         self.arq_sessoes = self.dir / "sessoes.json"
-        self._erros, self._ate = 0, 0.0
+        self._relogio = relogio
+        self._erros: dict[str, list] = {}  # ip -> [erros seguidos, bloqueado até]
         self._lock = threading.Lock()
 
     def _grava(self, arq: Path, texto: str) -> None:
@@ -32,28 +37,33 @@ class Auth:
         os.chmod(arq, 0o600)
 
     def definir_pin(self, pin: str) -> None:
-        if not (pin.isdigit() and 4 <= len(pin) <= 6):
-            raise ValueError("O PIN precisa ter de 4 a 6 números.")
+        if not (pin.isdigit() and len(pin) == 6):
+            raise ValueError("O PIN precisa ter 6 números.")
         sal = secrets.token_hex(8)
         self._grava(self.arq_pin, f"{sal}:{hashlib.sha256((sal + pin).encode()).hexdigest()}")
         self._grava(self.arq_sessoes, "[]")
 
-    def conferir(self, pin: str) -> bool:
+    def conferir(self, pin: str, ip: str = "") -> bool:
+        """Bloqueio por aparelho: um aparelho errando não tranca os outros."""
         with self._lock:
-            if time.time() < self._ate:
-                raise Bloqueado()
+            agora = self._relogio()
+            erros, ate = self._erros.get(ip, (0, 0.0))
+            if agora < ate:
+                raise Bloqueado(round(ate - agora))
             try:
                 sal, h = self.arq_pin.read_text().strip().split(":")
             except (OSError, ValueError):
                 return False
             ok = hmac.compare_digest(hashlib.sha256((sal + str(pin)).encode()).hexdigest(), h)
             if ok:
-                self._erros = 0
-            else:
-                self._erros += 1
-                if self._erros >= MAX_ERROS:
-                    self._erros, self._ate = 0, time.time() + BLOQUEIO_S
-            return ok
+                self._erros.pop(ip, None)
+                return True
+            erros += 1
+            espera = min(BLOQUEIO_S * 2 ** (erros - LIVRES), BLOQUEIO_MAX_S) if erros >= LIVRES else 0
+            if len(self._erros) > 1000:  # não deixa a tabela crescer sem fim
+                self._erros = {k: v for k, v in self._erros.items() if v[1] > agora}
+            self._erros[ip] = [erros, agora + espera]
+            return False
 
     def _sessoes(self) -> list[str]:
         try:
