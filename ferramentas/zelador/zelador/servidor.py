@@ -25,7 +25,8 @@ mimetypes.add_type("application/manifest+json", ".webmanifest")
 
 
 class App:
-    def __init__(self, ex: Executor, estado: Path, web: Path, chat=None, esperar_sunshine: float = 3):
+    def __init__(self, ex: Executor, estado: Path, web: Path, chat=None, esperar_sunshine: float = 3,
+                 desligar=acoes.desligar_pc):
         self.ex, self.web = ex, Path(web).resolve()
         self.nomes = _nomes_do_pc()
         self.auth = Auth(estado)
@@ -42,6 +43,7 @@ class App:
         self.chamar = chamar_anotando
         self.acoes = dict(acoes.ACOES)
         self.acoes["reiniciar_sunshine"] = partial(acoes.reiniciar_sunshine, esperar=esperar_sunshine)
+        self.desligar = desligar
 
 
     def _tarefa_terminou(self, e: dict) -> None:
@@ -189,6 +191,12 @@ class Handler(BaseHTTPRequestHandler):
             resumo = r.get("mensagem") or ("Sunshine " + str(r.get("sunshine")) if nome == "status" else "feito")
             self._anotar("acao", f"{NOMES_ACAO.get(nome, nome)}: {resumo}")
             return self._json(200, r)
+        if p == "/api/desligar":  # fora de /api/acao: exige confirmação explícita no corpo
+            if corpo.get("confirmar") is not True:
+                return self._json(400, {"erro": "Confirme para desligar."})
+            r = app.desligar(app.ex)
+            self._anotar("acao", f"Desligar o PC: {r['mensagem']}")
+            return self._json(200, r)
         if p == "/api/chat":
             hist = [m for m in corpo.get("historico", []) if isinstance(m, dict)
                     and m.get("role") in ("user", "assistant") and isinstance(m.get("content"), str)][-20:]
@@ -218,8 +226,8 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def criar_servidor(endereco, ex: Executor, estado: Path, web: Path, chat=None,
-                   esperar_sunshine: float = 3) -> ThreadingHTTPServer:
-    app = App(ex, estado, web, chat, esperar_sunshine)
+                   esperar_sunshine: float = 3, desligar=acoes.desligar_pc) -> ThreadingHTTPServer:
+    app = App(ex, estado, web, chat, esperar_sunshine, desligar)
     handler = type("H", (Handler,), {"app": app})
     srv = ThreadingHTTPServer(endereco, handler)
     srv.daemon_threads = True

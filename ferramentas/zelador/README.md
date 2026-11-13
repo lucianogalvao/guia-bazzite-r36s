@@ -13,7 +13,7 @@ python3 -m zelador definir-pin                    # trocar o PIN
 | Módulo | Papel |
 |---|---|
 | `executor.py` | Roda comandos como lista de argumentos (nunca shell); `ExecutorFalso` para testes |
-| `acoes.py` | Botões: status, reiniciar Sunshine, backup |
+| `acoes.py` | Botões: status, reiniciar Sunshine, backup, desligar o PC (sudo -n systemctl poweroff, com confirmação) |
 | `diagnostico.py` | "O que está acontecendo?" por regras, sem modelo |
 | `gpu.py` | Há jogo usando a placa de vídeo? |
 | `roms.py` | Downloads, torrents ativos (lê o `.fastresume` do qBittorrent), plano de organização |

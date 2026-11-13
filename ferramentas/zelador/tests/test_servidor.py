@@ -31,8 +31,10 @@ class TestServidor(unittest.TestCase):
             ("nvidia-smi",): Resultado(0, "", ""),
         })
         Auth(self.dir / "estado").definir_pin("123456")
+        self.desligadas = []
+        desligar = lambda ex: self.desligadas.append(ex) or {"ok": True, "mensagem": "Desligando o PC."}
         self.srv = servidor.criar_servidor(("127.0.0.1", 0), self.ex, self.dir / "estado", web,
-                                           chat=ChatFalso(), esperar_sunshine=0)
+                                           chat=ChatFalso(), esperar_sunshine=0, desligar=desligar)
         threading.Thread(target=self.srv.serve_forever, daemon=True).start()
         self.addCleanup(self.srv.server_close)
         self.addCleanup(self.srv.shutdown)
@@ -72,6 +74,18 @@ class TestServidor(unittest.TestCase):
         st, corpo = self.login("123456")
         self.assertEqual(st, 429)
         self.assertIn("Muitas tentativas", json.loads(corpo)["erro"])
+
+    def test_desligar_exige_login_e_confirmacao(self):
+        self.assertEqual(self.req("POST", "/api/desligar", {"confirmar": True})[0], 401)
+        self.login()
+        self.assertEqual(self.req("POST", "/api/desligar", {})[0], 400)
+        self.assertEqual(self.req("POST", "/api/desligar", {"confirmar": "sim"})[0], 400)
+        self.assertEqual(self.req("POST", "/api/acao/desligar_pc")[0], 404)
+        self.assertEqual(self.desligadas, [])
+        st, corpo = self.req("POST", "/api/desligar", {"confirmar": True})
+        self.assertEqual((st, json.loads(corpo)["ok"]), (200, True))
+        self.assertEqual(len(self.desligadas), 1)
+        self.assertIn("Desligar o PC", self.req("GET", "/api/registro")[1].decode())
 
     def test_login_e_reiniciar_sunshine(self):
         self.assertEqual(self.login()[0], 200)

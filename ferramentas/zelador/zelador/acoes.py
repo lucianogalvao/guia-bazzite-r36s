@@ -1,6 +1,7 @@
 """Botões: comandos fixos, os mesmos de docs/bazzite/12-comandos.md."""
 from __future__ import annotations
 
+import threading
 import time
 from typing import Callable
 
@@ -38,6 +39,25 @@ def backup_agora(ex: Executor) -> dict:
     r = ex.rodar(["systemctl", "--user", "start", "--no-block", config.BACKUP_UNIT])
     ok = r.codigo == 0
     return {"ok": ok, "mensagem": "Backup dos saves iniciado." if ok else "Não consegui iniciar o backup."}
+
+
+DESLIGAR = ["sudo", "-n", "/usr/bin/systemctl", "poweroff"]
+
+
+def _agendar(segundos: float, f: Callable[[], object]) -> None:
+    t = threading.Timer(segundos, f)
+    t.daemon = True
+    t.start()
+
+
+def desligar_pc(ex: Executor, atraso: float = 3, agendar: Callable = _agendar) -> dict:
+    """Confere a regra do sudoers (poweroff sem senha) e desliga daqui a `atraso` s,
+    para a resposta chegar ao celular antes da rede cair."""
+    pode = ex.rodar(["sudo", "-n", "-l", *DESLIGAR[2:]]).codigo == 0
+    if not pode:
+        return {"ok": False, "mensagem": "O sudo não deixa o Zelador desligar o PC (falta a regra do poweroff)."}
+    agendar(atraso, lambda: ex.rodar(DESLIGAR, timeout=60))
+    return {"ok": True, "mensagem": "Desligando o PC. A página vai perder contato em instantes."}
 
 
 ACOES: dict[str, Callable[[Executor], dict]] = {

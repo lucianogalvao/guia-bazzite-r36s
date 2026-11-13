@@ -49,6 +49,24 @@ class TestAcoes(unittest.TestCase):
         self.assertTrue(r["ok"])
         self.assertIn(["systemctl", "--user", "start", "--no-block", "backup-saves.service"], ex.chamadas)
 
+    def test_desligar_agenda_poweroff(self):
+        ex = ex_base({("sudo", "-n", "-l"): OK, ("sudo", "-n", "/usr/bin/systemctl"): OK})
+        agendados = []
+        r = acoes.desligar_pc(ex, atraso=3, agendar=lambda s, f: agendados.append((s, f)))
+        self.assertTrue(r["ok"])
+        self.assertIn(["sudo", "-n", "-l", "/usr/bin/systemctl", "poweroff"], ex.chamadas)
+        self.assertNotIn(acoes.DESLIGAR, ex.chamadas)  # só depois do atraso
+        self.assertEqual(agendados[0][0], 3)
+        agendados[0][1]()
+        self.assertIn(["sudo", "-n", "/usr/bin/systemctl", "poweroff"], ex.chamadas)
+
+    def test_desligar_sem_regra_no_sudo(self):
+        ex = ex_base({("sudo", "-n", "-l"): Resultado(1, "", "")})
+        agendados = []
+        r = acoes.desligar_pc(ex, agendar=lambda s, f: agendados.append(f))
+        self.assertFalse(r["ok"])
+        self.assertEqual(agendados, [])
+
     def test_acoes_registradas(self):
         self.assertEqual(set(acoes.ACOES), {"status", "reiniciar_sunshine", "backup_agora"})
 

@@ -196,7 +196,7 @@ textarea::placeholder { color: var(--sutil); }
 }
 .atalho .icone { color: var(--acao); }
 .atalho-largo { grid-column: 1 / -1; min-height: 64px; flex-direction: row; align-items: center; }
-#btn-fechar:not(:disabled) .icone { color: var(--perigo); }
+#btn-fechar:not(:disabled) .icone, #btn-desligar .icone { color: var(--perigo); }
 .atalho:active:not(:disabled) { background: var(--elevado); }
 
 /* ---------- Registro ---------- */
